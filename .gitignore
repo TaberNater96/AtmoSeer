@@ -1,0 +1,7 @@
+# Python
+__pycache__
+.ipynb_checkpoints
+
+# Raw Data
+*.db
+*.csv
