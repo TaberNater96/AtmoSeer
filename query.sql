@@ -1,4 +1,8 @@
--- SQL script to handle data transition from DynamoDB to Pandas DataFrame. This will be called using pandasql.
+/*
+SQL script to handle data transition from DynamoDB to Pandas DataFrame. This will be called using pandasql. Here, 
+there are a few feature engineering steps that could be useful for EDA and preprocessing. These features are not meant
+for final model input, they are designed for deeper insight for the EDA phase.
+*/
 
 SELECT 
     datetime, site, ppm, latitude, longitude, altitude, elevation,
