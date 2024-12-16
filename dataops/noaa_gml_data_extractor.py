@@ -70,7 +70,7 @@ class GMLDataExtractor:
         """
         lines = text.split('\n')
         for i, line in enumerate(lines):
-            if line.strip() and not line.startswith('#'):
+            if line.strip() and not line.startswith('#'): # the actual tabular data starts the line after #
                 return i
         # Default return in case no data line is found
         return len(lines)  
