@@ -1,5 +1,7 @@
 import unittest
-from noaa_gml_data_extractor import GMLDataExtractor
+from ..etl.\
+            extract.\
+                noaa_gml_data_extractor import GMLDataExtractor
 
 class TestCO2DataExtractor(unittest.TestCase):
 

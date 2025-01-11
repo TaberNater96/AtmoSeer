@@ -1,0 +1,1 @@
+This is a staging folder for raw data scraped from NASA.

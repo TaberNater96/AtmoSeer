@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from dynamodb_data_loader import DynamoDBDataLoader
+from ..etl.\
+            load.\
+                dynamodb_data_loader import DynamoDBDataLoader
 
 class TestDynamoDBDataLoader(unittest.TestCase):
     """
