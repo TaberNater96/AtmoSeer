@@ -12,6 +12,17 @@ from tqdm.notebook import tqdm
 import re
 
 class ModisProcessor:
+    """
+    A specialized processor that leverages NASA's MODIS satellite data to estimate vegetation biomass density around 
+    greenhouse gas measurement sites, providing crucial context for carbon sink capacity. By analyzing MODIS-derived
+    vegetation indices within configurable buffer zones around measurement locations, it allows the quantification of 
+    local biological carbon sequestration potential that may influence greenhouse gas readings. The processor implements 
+    temporal interpolation to generate continuous monthly biomass estimates from seasonal measurements, accounting for 
+    vegetation cycles and geographical variations including polar regions. This integration of satellite-derived vegetation 
+    data with greenhouse gas measurements helps create a more complete understanding of local carbon flux dynamics, particularly 
+    useful for models predicting greenhouse gas concentrations and studying the relationship between terrestrial ecosystems and 
+    atmospheric composition.
+    """
     def __init__(
         self, 
         username: str, 
