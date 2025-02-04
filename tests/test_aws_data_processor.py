@@ -1,9 +1,8 @@
 import unittest
 from unittest.mock import  patch
 import pandas as pd
-from analysis.\
-            utils.\
-                aws_data_processor import DataProcessor
+from ..utils.\
+            aws_data_processor import DataProcessor
 
 class TestDataProcessor(unittest.TestCase):
     """

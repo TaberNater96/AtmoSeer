@@ -13,9 +13,10 @@ def load_table(table_name, username, password):
     Returns:
     - pd.DataFrame: DataFrame containing the table data.
     """
-    # Create the database engine
     engine = create_engine(f'postgresql://{username}:{password}@localhost:5432/gml_ghg')
     df = pd.read_sql_table(table_name, engine)
     engine.dispose()
+    df['date'] = df['date'].dt.date # remove time parameter
+    df.drop(columns=['gas'], inplace=True) # remove the gas column as it is only needed for merges
     
     return df
