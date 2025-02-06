@@ -3,9 +3,10 @@ import torch
 
 @dataclass
 class ModelConfig:
-    input_dim: int = 13
+    input_dim: int = 14
     hidden_dim: int = 256
     num_layers: int = 2
+    batch_first: bool = True
     dropout: float = 0.2
     bidirectional: bool = True
     sequence_length: int = 30  # lookback window
