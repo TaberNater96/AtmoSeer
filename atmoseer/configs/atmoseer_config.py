@@ -15,15 +15,8 @@ class ModelConfig:
 class TrainConfig:
     batch_size: int = 32
     learning_rate: float = 1e-3
-    num_epochs: int = 100
+    num_epochs: int = 50
     early_stopping_patience: int = 10
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     gradient_clip_val: float = 1.0
     gradient_accumulation_steps: int = 4
-    
-@dataclass
-class PredictConfig:
-    max_forecast_horizon: int = 1825        # 5 years in days
-    confidence_level: float = 0.95
-    default_biomass: float = None           # will be set during training
-    default_location_features: dict = None  # will store avg lat/long/altitude
