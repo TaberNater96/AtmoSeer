@@ -1,8 +1,16 @@
 import torch
 import torch.nn as nn
-from configs.atmoseer_config import ModelConfig, TrainConfig
+from configs.atmoseer_config import ModelConfig, TrainConfig, BayesianTunerConfig
 import numpy as np
 import pandas as pd
+import json
+from datetime import datetime
+from pathlib import Path
+import gc
+from typing import Dict, Any, Optional, Tuple
+from bayes_opt import BayesianOptimization
+from bayes_opt.logger import JSONLogger
+from bayes_opt.event import Events
 
 class AtmoSeer(nn.Module):
     """
@@ -133,7 +141,10 @@ class AtmoSeer(nn.Module):
         
         # Track best validation loss for model checkpointing
         best_val_loss = float('inf')
+        best_train_loss = float('inf')
+        best_epoch = 0
         early_stopping_counter = 0
+        min_delta = train_config.min_delta         # minimum change in validation loss to qualify as improvement
         training_history = {'train_loss': [], 'val_loss': []}
         
         # Main training loop over epochs
@@ -165,26 +176,38 @@ class AtmoSeer(nn.Module):
                 
                 total_loss += loss.item() * train_config.gradient_accumulation_steps
             
+            avg_train_loss = total_loss / len(train_loader)
             val_loss = self._validate(val_loader, criterion, train_config.device)
             
+            training_history['train_loss'].append(avg_train_loss)
+            training_history['val_loss'].append(val_loss)
+            
             # Early stopping and model checkpoint logic
-            if val_loss < best_val_loss:
+            if val_loss < (best_val_loss - min_delta):
                 best_val_loss = val_loss
-                best_state = self.state_dict() # save the best model
+                best_train_loss = avg_train_loss
+                best_epoch = epoch
+                best_state = self.state_dict()
                 early_stopping_counter = 0
+                print(f"Epoch {epoch}: New best validation loss: {val_loss:.6f}")
             else:
                 early_stopping_counter += 1
             
             if early_stopping_counter >= train_config.early_stopping_patience:
-                print(f"Early stopping triggered at epoch {epoch}")
+                print(f"Early stopping triggered at epoch {epoch}. Best epoch was {best_epoch} with validation loss {best_val_loss:.6f}")
                 break
-                
-            training_history['train_loss'].append(total_loss / len(train_loader))
-            training_history['val_loss'].append(val_loss)
             
-        # Restore best model state after training loop  
+        # Restore best model state
         self.load_state_dict(best_state)
-        return training_history
+        
+        # Return extended history including best epoch information
+        return {
+            'train_loss': training_history['train_loss'],
+            'val_loss': training_history['val_loss'],
+            'best_epoch': best_epoch,
+            'best_val_loss': best_val_loss,
+            'final_train_loss': best_train_loss
+        }
     
     def _validate(
         self: "AtmoSeer",
@@ -463,3 +486,315 @@ class AtmoSeer(nn.Module):
             }
         
         return result
+    
+class BayesianTuner:
+    """
+    This class implements a Bayesian optimization approach to find optimal hyperparameters for the AtmoSeer model. It uses Gaussian 
+    Process regression to model the relationship between hyperparameters and model performance, guided by an acquisition function to
+    balance exploration and exploitation in the search space. The process is designed to be resilient to training failures and memory 
+    constraints while maintaining detailed logs for analysis and reproducibility.
+    
+    Main Components:
+    - Automated trial management and logging
+    - Memory-aware resource handling
+    - Persistent storage of optimization results
+    - Recovery capability from interrupted optimization
+    - Configurable cleanup policies for trial artifacts
+    """
+    def __init__(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        config: BayesianTunerConfig = BayesianTunerConfig()
+    ) -> None:
+        """        
+        This method sets up the optimization environment, initializes tracking metrics, and makes sure the logging directory structure 
+        exists. It can resume interrupted optimization runs by loading existing logs.
+        
+        Args:
+            train_loader (DataLoader): PyTorch DataLoader containing training data. Used to evaluate each trial's hyperparameter set.
+            val_loader (DataLoader): PyTorch DataLoader containing validation data. Used to compute the optimization objective.
+            config (BayesianTunerConfig): Configuration object containing optimization parameters, directory paths, and resource limits.
+                                          Uses default values if not provided.
+        """
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.config = config
+        self.best_val_loss = float('inf')
+        self.best_trial_id = None
+        self.current_trial = 0
+        self.setup_logging()
+        
+    def setup_logging(self) -> None:
+        """
+        Initialize the logging system for tracking optimization progress.
+        
+        This method establishes a JSON-based logging system that maintains a complete record of all optimization trials. It creates or 
+        loads the optimization log file, which will allow the tuning process to resume from previous runs.
+        
+        This method performs two main tasks:
+        1. Creates/accesses a JSON log file for storing optimization results
+        2. Determines the current trial number by counting existing trials
+        
+        The logging setup supports:
+        - Persistent storage of optimization history
+        - Recovery from interrupted optimization runs
+        - Structured tracking of trial results
+        """
+        self.log_path = self.config.gas_dir / 'optimization_results.json'
+        self.logger = JSONLogger(path=str(self.log_path))
+        
+        # If log file exists, count previous trials to resume optimization
+        if self.log_path.exists():
+            with open(self.log_path, 'r') as f:
+                log_data = json.load(f)
+                self.current_trial = len(log_data['trials']) # set current trial to continue from last recorded trial
+    
+    def _cleanup_memory(self) -> None:
+        """
+        Release GPU and system memory between optimization trials.
+        
+        This method performs memory cleanup to prevent memory leaks and OOM (Out Of Memory) errors during long optimization runs. It's particularly 
+        important when running multiple trials with large models or datasets, as PyTorch can retain memory allocations between trials even after tensors 
+        are no longer needed. This is a preventive measure against memory fragmentation, which can occur even when total memory usage appears acceptable. 
+        
+        The cleanup process has two stages:
+        1. GPU memory clearance - forces immediate release of all cached GPU tensors
+        2. Python garbage collection - ensures unused Python objects are properly deallocated
+        """
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+    
+    def _save_trial(
+        self,
+        trial_id: int,
+        model: AtmoSeer,
+        params: Dict[str, Any],
+        metrics: Dict[str, float],
+        is_best: bool = False
+    ) -> None:
+        """
+        Persist optimization trial results and model artifacts to disk.
+        
+        The saving strategy follows a two-tier approach:
+        1. Every trial gets its metrics and parameters saved for analysis and debugging
+        2. Best-performing models get additional artifacts saved to enable model recovery
+        
+        Args:
+            trial_id (int): Unique identifier for the trial, used in directory naming
+            model (AtmoSeer): The trained model instance to be saved if it's the best
+            params (Dict[str, Any]): Hyperparameters used in this trial
+            metrics (Dict[str, float]): Performance metrics from the trial
+            is_best (bool): Flag indicating if this trial achieved best performance. Defaults to False.
+        """
+        trial_dir = self.config.trials_dir / f'trial_{trial_id:03d}'
+        trial_dir.mkdir(exist_ok=True)
+        
+        # Save trial metrics and parameters
+        trial_info = {
+            'trial_id': trial_id,
+            'parameters': params,
+            'metrics': metrics,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        with open(trial_dir / 'metrics.json', 'w') as f:
+            json.dump(trial_info, f, indent=4)
+        
+        # Save model if it's among the best
+        if is_best:
+            model.save_model(trial_dir / 'model.pth')
+            
+            # Update best model directory with current best performer
+            model.save_model(self.config.best_model_dir / 'model.pth')
+            with open(self.config.best_model_dir / 'config.json', 'w') as f:
+                json.dump(trial_info, f, indent=4)
+    
+    def _cleanup_old_trials(self) -> None:
+        """
+        Remove artifacts from suboptimal trials to manage disk space.
+        
+        This method implements a selective cleanup strategy that preserves only the artifacts from the best-performing trial while removing others. It's 
+        designed to prevent disk space exhaustion during long optimization runs while retaining essential information for model deployment and analysis. 
+        This preserves the best trial's artifacts for model recovery while removing all other trail directories and their contents.
+        """
+        if not self.config.cleanup_trials:
+            return
+            
+        # Keep only the best trial
+        for trial_dir in self.config.trials_dir.glob('trial_*'):
+            trial_id = int(trial_dir.name.split('_')[1])
+            # Only keep the best trial, remove all others to conserve disk space
+            if trial_id != self.best_trial_id:
+                if trial_dir.exists():
+                    # Remove all files and then the directory itself
+                    for file in trial_dir.glob('*'):
+                        file.unlink()
+                    trial_dir.rmdir()
+    
+    def _objective(self, **params) -> float:
+        """
+        Evaluates AtmoSeer model performance for a given hyperparameter configuration.
+        
+        The trial evaluation process:
+        
+        1. Parameter Mapping:
+            - Converts continuous Bayesian optimization parameters to appropriate model types
+            - Configures both model architecture and training parameters simultaneously
+            
+        2. Model Evaluation:
+            - Initializes AtmoSeer with current hyperparameter set
+            - Executes training cycle with current configuration
+            - Tracks validation performance for optimization guidance
+            
+        3. Resource Management:
+            - Saves trial artifacts for successful configurations
+            - Implements periodic cleanup of suboptimal trials
+            - Handles trial failures without disrupting optimization
+        
+        Args:
+            **params: Hyperparameters to evaluate:
+                - hidden_dim: LSTM hidden layer dimension
+                - num_layers: Number of LSTM layers
+                - dropout: Dropout rate for regularization
+                - sequence_length: Input sequence length 
+                - batch_size: Training batch size 
+                - learning_rate: Model optimization rate
+                
+        Returns:
+            float: Negative validation loss for maximization in Bayesian optimization.
+                   Returns -inf for failed trials to avoid those parameter regions.
+        """
+        self.current_trial += 1
+        print(f"\nTrial {self.current_trial}/{self.config.n_trials}")
+        
+        # Convert parameters to appropriate types
+        model_params = {
+            'hidden_dim': int(params['hidden_dim']),
+            'num_layers': int(params['num_layers']),
+            'dropout': params['dropout'],
+            'sequence_length': int(params['sequence_length'])
+        }
+        
+        train_params = {
+            'batch_size': int(params['batch_size']),
+            'learning_rate': params['learning_rate']
+        }
+        
+        model_config = ModelConfig(**model_params)
+        train_config = TrainConfig(**train_params)        
+        model = AtmoSeer(model_config=model_config)
+        
+        try:
+            # Execute training pipeline and capture performance metrics
+            history = model.train_model(
+                train_loader=self.train_loader,
+                val_loader=self.val_loader,
+                train_config=train_config
+            )
+            
+            val_loss = history['best_val_loss']
+            
+            # Update best model tracking if current trial shows improvement
+            is_best = val_loss < self.best_val_loss
+            if is_best:
+                self.best_val_loss = val_loss
+                self.best_trial_id = self.current_trial
+            
+            self._save_trial(
+                trial_id=self.current_trial,
+                model=model,
+                params={**model_params, **train_params},
+                metrics=history,
+                is_best=is_best
+            )
+            
+            # Release GPU memory between trials
+            self._cleanup_memory()
+            if self.current_trial % 5 == 0:   # periodic cleanup of older, suboptimal trials
+                self._cleanup_old_trials()
+            
+            return -val_loss  # negative because we want to maximize
+            
+        except Exception as e:
+            print(f"Trial {self.current_trial} failed: {str(e)}")
+            self._cleanup_memory()
+            return float('-inf')  # return worst possible score on failed configurations
+    
+    def optimize(self) -> Tuple[Dict[str, Any], float]:
+        """
+        Execute the Bayesian optimization process to find optimal hyperparameters for the AtmoSeer model.
+        
+        This method implements a sophisticated hyperparameter optimization strategy using Gaussian Process regression to model the relationship between 
+        hyperparameters and model performance. The optimization process follows a specific sequence:
+        
+        1. Initialization Phase:
+        - Starts with random exploration to build initial understanding of parameter space
+        - Uses 5 initial random trials to establish baseline performance metrics
+        - Creates foundation for Gaussian Process modeling
+        
+        2. Bayesian Optimization Phase:
+        - Applies Expected Improvement (EI) acquisition function to balance exploration/exploitation
+        - Updates probability model after each trial to refine search strategy
+        - Adapts search based on observed performance patterns
+        
+        3. Resource Management:
+        - Uses trial logging for tracking optimization progress
+        - Activates recovery from interrupted optimization runs
+        - Manages computational resources through periodic cleanup
+        
+        Returns:
+            Tuple[Dict[str, Any], float]: A tuple containing:
+                - Best hyperparameter configuration found during optimization
+                - Corresponding validation loss (lower is better)
+        """
+        optimizer = BayesianOptimization(
+            f=self._objective,
+            pbounds=self.config.param_bounds,
+            random_state=self.config.random_state
+        )
+        
+        # Set up logging to track optimization progress and enable run recovery
+        optimizer.subscribe(Events.OPTIMIZATION_STEP, self.logger)
+        
+        optimizer.maximize(
+            init_points=5,                    # first 5 trials explore randomly to build initial model
+            n_iter=self.config.n_trials - 5,  # remaining trials use Bayesian optimization
+            acq='ei',                         # expected Improvement acquisition function for balanced exploration
+            xi=0.01                           # small xi prioritizes exploitation over exploration
+        )
+        
+        self._cleanup_old_trials()
+        
+        # The target is negated here because the optimizer maximizes when it needs to minimize loss
+        return optimizer.max['params'], -optimizer.max['target'] 
+    
+    @staticmethod
+    def load_best_model(
+        gas_type: str,
+        models_dir: Path=Path('../atmoseer/models'),
+        device: Optional[torch.device] = None
+    ) -> AtmoSeer:
+        """
+        Load the best performing model from a completed optimization process.
+        
+        Args:
+            gas_type (str): Type of greenhouse gas the model was trained for ('co2', 'ch4', 'n2o', 'sf6').
+            models_dir (Path): Base directory containing all model artifacts. Expected to have subdirectories for each gas type.
+                               Defaults to '../atmoseer/models'.
+            device (Optional[torch.device]): Device where the model should be loaded. If None, uses the device from the saved state.
+                                             Defaults to None.
+        
+        Returns:
+            AtmoSeer: A fully initialized model instance with the best performing configuration and parameters from the optimization process.
+        
+        Note:
+            The method expects the following directory structure:
+            models_dir/
+            └── gas_type/
+                └── best_model/
+                    └── model.pth
+        """
+        best_model_path = Path(models_dir) / gas_type / 'best_model' / 'model.pth'
+        return AtmoSeer.load_model(str(best_model_path), device) # this will restore both model architecture and learned parameters
