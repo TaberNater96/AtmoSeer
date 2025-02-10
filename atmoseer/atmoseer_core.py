@@ -3,11 +3,12 @@ import torch.nn as nn
 from configs.atmoseer_config import ModelConfig, TrainConfig, BayesianTunerConfig
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 import json
 from datetime import datetime
 from pathlib import Path
 import gc
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union
 from bayes_opt import BayesianOptimization
 from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
@@ -37,15 +38,16 @@ class AtmoSeer(nn.Module):
         """
         # Initialize parent nn.Module class to enable PyTorch functionality
         super().__init__()
-        self.model_config = model_config
+        self.model_config = model_config        
+        self.input_norm = nn.LayerNorm(model_config.input_dim)
         
         self.lstm = nn.LSTM(
-            input_size=model_config.input_dim,
+            input_size=model_config.input_dim,  # Use input_dim directly
             hidden_size=model_config.hidden_dim,
             num_layers=model_config.num_layers,
             batch_first=model_config.batch_first,
             bidirectional=model_config.bidirectional,
-            dropout=model_config.dropout if model_config.num_layers > 1 else 0 # only apply dropout between LSTM layers, not for single layer
+            dropout=model_config.dropout if model_config.num_layers > 1 else 0
         )
         
         # Calculate output dimension of LSTM, double if bidirectional
@@ -54,6 +56,7 @@ class AtmoSeer(nn.Module):
         # Attention mechanism to weight different time steps, uses a two-layer neural network to compute attention scores
         self.attention = nn.Sequential(
             nn.Linear(lstm_out_dim, lstm_out_dim // 2),
+            nn.LayerNorm(lstm_out_dim // 2),
             nn.Tanh(),
             nn.Linear(lstm_out_dim // 2, 1)
         )
@@ -61,10 +64,30 @@ class AtmoSeer(nn.Module):
         # Final fully connected layers for prediction, gradually reduce dimensions to single output value
         self.fc = nn.Sequential(
             nn.Linear(lstm_out_dim, lstm_out_dim // 2),
+            nn.LayerNorm(lstm_out_dim // 2),
             nn.ReLU(),
             nn.Dropout(model_config.dropout),
-            nn.Linear(lstm_out_dim // 2, 1)
+            nn.Linear(lstm_out_dim // 2, lstm_out_dim // 4),
+            nn.LayerNorm(lstm_out_dim // 4),
+            nn.ReLU(),
+            nn.Linear(lstm_out_dim // 4, 1)
         )
+        
+        self._init_weights()
+        
+    def _init_weights(self):
+        """Initialize model weights for better gradient flow."""
+        for name, param in self.named_parameters():
+            if 'weight' in name:
+                if 'lstm' in name:
+                    # Use orthogonal initialization for LSTM weights
+                    nn.init.orthogonal_(param)
+                elif len(param.shape) > 1:
+                    # Use Xavier/Glorot for other weight matrices
+                    nn.init.xavier_uniform_(param)
+            elif 'bias' in name:
+                # Initialize bias terms with zeros
+                nn.init.zeros_(param)
         
     def forward(
         self: "AtmoSeer",
@@ -91,6 +114,9 @@ class AtmoSeer(nn.Module):
             torch.Tensor: Predicted values tensor of shape (batch_size, 1)
                           representing the predicted gas concentration for each sample.
         """
+        # Apply input normalization
+        x = self.input_norm(x)
+        
         # x shape: [batch_size, seq_length, input_dim]
         lstm_out, _ = self.lstm(x) # shape: [batch_size, seq_length, hidden_dim*2] (if bidirectional)
         
@@ -146,6 +172,7 @@ class AtmoSeer(nn.Module):
         early_stopping_counter = 0
         min_delta = train_config.min_delta         # minimum change in validation loss to qualify as improvement
         training_history = {'train_loss': [], 'val_loss': []}
+        best_state = None
         
         # Main training loop over epochs
         for epoch in range(train_config.num_epochs):
@@ -189,7 +216,7 @@ class AtmoSeer(nn.Module):
                 best_epoch = epoch
                 best_state = self.state_dict()
                 early_stopping_counter = 0
-                print(f"Epoch {epoch}: New best validation loss: {val_loss:.6f}")
+                print(f"Epoch: {epoch} \nNew best validation loss: {val_loss:.6f} for current trial")
             else:
                 early_stopping_counter += 1
             
@@ -197,8 +224,11 @@ class AtmoSeer(nn.Module):
                 print(f"Early stopping triggered at epoch {epoch}. Best epoch was {best_epoch} with validation loss {best_val_loss:.6f}")
                 break
             
-        # Restore best model state
-        self.load_state_dict(best_state)
+        # Only try to load best_state if we found one
+        if best_state is not None:
+            self.load_state_dict(best_state)
+        else:
+            print("Warning: No best state was found during training")
         
         # Return extended history including best epoch information
         return {
@@ -285,7 +315,86 @@ class AtmoSeer(nn.Module):
         model = cls(model_config=checkpoint['model_config'])
         model.load_state_dict(checkpoint['model_state_dict'])
         return model
-    
+
+    def _update_prediction_history(
+        self, 
+        target_date: pd.Timestamp, 
+        prediction_value: float
+    ) -> None:
+        """
+        Keeps track of the model's predictions over time, building a historical record that helps with future forecasting. When predicting 
+        greenhouse gas concentrations, the model often need to reference recent predictions to maintain consistency in forecasts. This 
+        method adds each new prediction to the model's memory, allowing it to build upon its own previous predictions.
+
+        Args:
+            target_date (pd.Timestamp): The date we're predicting for, which becomes our reference point in the prediction history.
+            prediction_value (float): The predicted gas concentration for this date.
+        """
+        if not hasattr(self, 'prediction_history'):
+            self.prediction_history = {}
+        
+        self.prediction_history[target_date] = prediction_value
+        
+    def _get_lag_value(
+        self, 
+        target_date: pd.Timestamp, 
+        lag_days: int
+    ) -> float:
+        """
+        Retrieves the gas concentration value for a specified number of days before the target date.
+        
+        This method implements a hierarchical lookup strategy to obtain historical or predicted values:
+        1. Searches for exact matches in the prediction history
+        2. Retrieves values from historical data if the date precedes the last known date
+        3. Locates nearest predicted values for future dates
+        4. Computes trend-based extrapolation when no direct values are available
+        
+        Args:
+            target_date (pd.Timestamp): Reference date from which to calculate the lag
+            lag_days (int): Number of days to look backward from the target date
+            
+        Returns:
+            float: Gas concentration value for the lagged date, sourced from either historical data,
+                   previous predictions, or trend-based estimates
+        """
+        lag_date = target_date - pd.Timedelta(days=lag_days)
+        
+        # First check prediction history for the exact date
+        if hasattr(self, 'prediction_history') and lag_date in self.prediction_history:
+            return self.prediction_history[lag_date]
+        
+        # If the lag date is in or before our historical data
+        if lag_date <= self.last_known_date:
+            days_from_end = (self.last_known_date - lag_date).days
+            if days_from_end < len(self.last_known_ppm):
+                return self.last_known_ppm[-days_from_end-1]
+            return self.last_known_ppm[0]
+        
+        # For future dates without exact matches, find the closest predicted date
+        if hasattr(self, 'prediction_history'):
+            closest_date = None
+            min_diff = float('inf')
+            
+            for pred_date in self.prediction_history.keys():
+                diff = abs((pred_date - lag_date).days)
+                if diff < min_diff:
+                    min_diff = diff
+                    closest_date = pred_date
+            
+            if closest_date is not None:
+                return self.prediction_history[closest_date]
+        
+        # If no suitable prediction found, use trend-adjusted last known value
+        days_forward = (lag_date - self.last_known_date).days
+        if days_forward > 0:
+            # Calculate trend from last year of historical data
+            last_year = self.last_known_ppm[-365:]
+            daily_trend = (last_year[-1] - last_year[0]) / 365
+            trend_adjustment = daily_trend * days_forward
+            return self.last_known_ppm[-1] + trend_adjustment
+        
+        return self.last_known_ppm[-1]
+
     def prepare_prediction_defaults(
         self: "AtmoSeer",
         last_known_data: pd.DataFrame
@@ -303,17 +412,34 @@ class AtmoSeer(nn.Module):
             This method must be called before making predictions to ensure the model has appropriate reference 
             values for location features and recent measurements.
         """
-        # Store the most recent date and ppm from the historical data, used as reference point for generating future dates
-        self.last_known_date = pd.to_datetime(last_known_data['date'].max())
-        self.last_known_ppm = last_known_data['ppm'].iloc[-365:].values  # last year of values
+        df = last_known_data.copy()
         
-        # Store average location and biomass values
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+        
+        # Store the most recent date and ppm from the historical data, used as reference point for generating future dates
+        self.last_known_date = df.index.max()
+        self.last_known_ppm = df['ppm'].iloc[-365:].values
+        
+        self.daily_trend = (self.last_known_ppm[-1] - self.last_known_ppm[0]) / 365
+        self.seasonal_patterns = {}
+        
+        # Calculate monthly seasonal patterns
+        monthly_means = df.resample('M')['ppm'].mean()
+        
+        yearly_cycle = monthly_means.groupby(monthly_means.index.month).mean()
+        yearly_mean = yearly_cycle.mean()
+        self.seasonal_patterns = (yearly_cycle - yearly_mean).to_dict()
+        
+        site_encoder = LabelEncoder()
+        encoded_site = site_encoder.fit_transform([df['site'].iloc[0]])[0]
+        
         self.default_features = {
-            'latitude': last_known_data['latitude'].mean(),
-            'longitude': last_known_data['longitude'].mean(),
-            'altitude': last_known_data['altitude'].mean(),
-            'biomass_density': last_known_data['biomass_density'].iloc[-1],  # use last known value
-            'site': last_known_data['site'].mode()[0]                        # most common site
+            'latitude': float(df['latitude'].mean()),
+            'longitude': float(df['longitude'].mean()),
+            'altitude': float(df['altitude'].mean()),
+            'biomass_density': float(df['biomass_density'].iloc[-1]),
+            'site': float(encoded_site)
         }
 
     def _prepare_features(
@@ -335,39 +461,34 @@ class AtmoSeer(nn.Module):
                         season, co2_change_rate, month_sin, month_cos, ppm_lag_14, ppm_lag_30, ppm_lag_365, biomass_density]
         """
         # Calculate temporal features, month is encoded both as raw value and cyclical components
+        month = target_date.month
         features = {
-            'year': target_date.year,
-            'month': target_date.month,
-            'month_sin': np.sin(2 * np.pi * target_date.month / 12),
-            'month_cos': np.cos(2 * np.pi * target_date.month / 12),
-            'season': (target_date.month % 12 + 3) // 3
+            'year': float(target_date.year),
+            'month_sin': float(np.sin(2 * np.pi * month / 12)),
+            'month_cos': float(np.cos(2 * np.pi * month / 12))
         }
         
-        # Add default location features
         features.update(self.default_features)
         
-        # Handle lag features
-        if target_date <= self.last_known_date:
-            features.update({
-                'ppm_lag_14': self.last_known_ppm[-14],
-                'ppm_lag_30': self.last_known_ppm[-30],
-                'ppm_lag_365': self.last_known_ppm[-365]
-            })
-        else:
-            # Use most recent predictions for lags
-            features.update({
-                'ppm_lag_14': self.last_known_ppm[-1],
-                'ppm_lag_30': self.last_known_ppm[-1],
-                'ppm_lag_365': self.last_known_ppm[-1]
-            })
+        ppm_lag_14 = self._get_lag_value(target_date, 14)
+        ppm_lag_30 = self._get_lag_value(target_date, 30)
+        ppm_lag_365 = self._get_lag_value(target_date, 365)
+        
+        seasonal_factor = self.seasonal_patterns.get(month, 0)
+        
+        features.update({
+            'ppm_lag_14': ppm_lag_14 + seasonal_factor,
+            'ppm_lag_30': ppm_lag_30 + seasonal_factor,
+            'ppm_lag_365': ppm_lag_365 + seasonal_factor
+        })
         
         # Calculate rate of change using available lag values, uses shorter time window to capture recent trends
-        features['co2_change_rate'] = (features['ppm_lag_14'] - features['ppm_lag_30']) / 16
+        features['co2_change_rate'] = float((ppm_lag_14 - ppm_lag_30) / 16)
         
-        feature_order = ['site', 'latitude', 'longitude', 'altitude', 'year', 'month', 'season', 'co2_change_rate', 
-                         'month_sin', 'month_cos', 'ppm_lag_14', 'ppm_lag_30', 'ppm_lag_365', 'biomass_density']
+        feature_order = ['site', 'latitude', 'longitude', 'altitude', 'year', 'co2_change_rate', 
+                        'month_sin', 'month_cos', 'ppm_lag_14', 'ppm_lag_30', 'ppm_lag_365', 'biomass_density']
         
-        return np.array([features[col] for col in feature_order])
+        return np.array([features[col] for col in feature_order], dtype=np.float32)
 
     def _prepare_sequence(
         self: "AtmoSeer",
@@ -394,19 +515,20 @@ class AtmoSeer(nn.Module):
         current_date = target_date
         
         # Generate features for each time step in the sequence and insert at the beginning to maintain chronological order
-        for i in range(self.model_config.sequence_length):
+        for _ in range(self.model_config.sequence_length):
             features = self._prepare_features(current_date)
             sequence.insert(0, features)  # insert at the start to so that the oldest data is first in the sequence
             current_date = current_date - pd.Timedelta(days=1) # move back one day for next iteration
         
-        return np.array(sequence)
+        return np.array(sequence, dtype=np.float32)
 
     def predict(
-        self: "AtmoSeer",
+        self,
         target_date: str,
         test_loader: torch.utils.data.DataLoader,
+        target_scaler: StandardScaler,
         return_confidence: bool = True
-    ) -> dict[str, float | tuple[float, float]]:
+    ) -> dict[str, Union[float, tuple[float, float], dict[str, float]]]:
         """
         Generate predictions for greenhouse gas concentrations at a specified future date. This method combines the 
         model's prediction capabilities with uncertainty estimation, providing both a point prediction and confidence 
@@ -420,6 +542,8 @@ class AtmoSeer(nn.Module):
                                set to the first of the month.
             test_loader (DataLoader): PyTorch DataLoader containing test data that was temporally split (last 10% of time 
                                       series) for unbiased error calculation.
+            target_scaler (StandardScaler): Scaler used to transform target values during training.
+                                            Used to convert predictions back to original scale.
             return_confidence (bool): If True, includes confidence intervals in the output. Default is True.
 
         Returns:
@@ -428,64 +552,86 @@ class AtmoSeer(nn.Module):
                 - 'confidence_interval': Tuple of (lower_bound, upper_bound) Only included if return_confidence is True
         """
         self.eval()
+        self.train(False)    # double check the model is not training
+        self.device = next(self.parameters()).device
         
-        # Convert string date to timestamp, setting day to first of month
-        target_date = pd.to_datetime(target_date + '/01')
+        try:
+            if '/' in target_date:
+                month, year = target_date.split('/')
+                month, year = int(month), int(year)
+            else:
+                raise ValueError("Date must be in MM/YYYY format")
+            target_date = pd.Timestamp(year=year, month=month, day=1)
         
-        # Generate sequence of features leading up to target date
-        sequence = self._prepare_sequence(target_date)
-        
-        # Disable gradient computation for prediction
-        with torch.no_grad():
-            # Add batch dimension and move to GPU
-            x = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)            
-            prediction = self(x)
-            prediction_value = prediction.item()
-        
-        result = {'prediction': prediction_value}
-        
-        # Calculate confidence intervals if requested
-        if return_confidence:
-            # Calculate errors on test set to maintain temporal structure
-            temporal_errors = []
-            sequential_errors = []  # track errors in sequence for trend analysis
+            # Generate sequence of features leading up to target date
+            sequence = self._prepare_sequence(target_date)
             
+            # Disable gradient computation for prediction
             with torch.no_grad():
-                for X_batch, y_batch in test_loader:
-                    X_batch = X_batch.to(self.device)
-                    y_batch = y_batch.to(self.device)                    
-                    test_preds = self(X_batch)
-                    
-                    # Calculate absolute errors while preserving temporal order
-                    errors = torch.abs(test_preds - y_batch)
-                    temporal_errors.extend(errors.cpu().numpy())
-                    sequential_errors.append(errors.mean().item())
+                x = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)
+                prediction = self(x)
+                
+                # Convert prediction back to original scale
+                prediction_value = target_scaler.inverse_transform(
+                    prediction.cpu().numpy().reshape(-1, 1)
+                )[0][0]
+                
+                self._update_prediction_history(target_date, prediction_value)
             
-            # Calculate base error margin from test set
-            error_margin = np.percentile(temporal_errors, 95)
+            result = {'prediction': prediction_value}
             
-            # Analyze error trend in temporal sequence
-            error_trend = np.polyfit(range(len(sequential_errors)), sequential_errors, 1)[0]
+            # Calculate confidence intervals if requested
+            if return_confidence:
+                # Calculate errors on test set to maintain temporal structure
+                temporal_errors = []
+                sequential_errors = []  # track errors in sequence for trend analysis
+                
+                with torch.no_grad():
+                    for X_batch, y_batch in test_loader:
+                        X_batch = X_batch.to(self.device)
+                        test_preds = self(X_batch)
+                        
+                        # Convert predictions and actual values back to original scale
+                        test_preds_orig = target_scaler.inverse_transform(
+                            test_preds.cpu().numpy().reshape(-1, 1)
+                        ).reshape(-1)
+                        y_batch_orig = target_scaler.inverse_transform(
+                            y_batch.numpy().reshape(-1, 1)
+                        ).reshape(-1)
+                        
+                        # Calculate errors in original scale
+                        errors = np.abs(test_preds_orig - y_batch_orig)
+                        temporal_errors.extend(errors)
+                        sequential_errors.append(errors.mean())
+                
+                # Calculate base error margin from test set
+                error_margin = np.percentile(temporal_errors, 95)
+                
+                # Analyze error trend in temporal sequence
+                error_trend = np.polyfit(range(len(sequential_errors)), sequential_errors, 1)[0]
+                
+                # Calculate prediction horizon in months
+                months_out = abs((target_date - self.last_known_date).days) / 30.44
+                
+                # Adjust error margin based on observed error trend and horizon
+                trend_scaling = max(1.0, 1.0 + (error_trend * months_out))
+                final_error_margin = error_margin * trend_scaling
+                
+                result['confidence_interval'] = (
+                    prediction_value - final_error_margin,
+                    prediction_value + final_error_margin
+                )
+                
+                result['error_metadata'] = {
+                    'base_error_margin': error_margin,
+                    'trend_scaling': trend_scaling,
+                    'prediction_horizon_months': months_out
+                }
             
-            # Calculate prediction horizon in months
-            months_out = abs((target_date - self.last_known_date).days) / 30.44
-            
-            # Adjust error margin based on observed error trend and horizon
-            trend_scaling = max(1.0, 1.0 + (error_trend * months_out))
-            final_error_margin = error_margin * trend_scaling
-            
-            result['confidence_interval'] = (
-                prediction_value - final_error_margin,
-                prediction_value + final_error_margin
-            )
-            
-            result['error_metadata'] = {
-                'base_error_margin': error_margin,
-                'trend_scaling': trend_scaling,
-                'prediction_horizon_months': months_out
-            }
+            return result
         
-        return result
+        except Exception as e:
+            raise ValueError(f"Error making prediction: {str(e)}")
     
 class BayesianTuner:
     """
@@ -505,7 +651,7 @@ class BayesianTuner:
         self,
         train_loader: torch.utils.data.DataLoader,
         val_loader: torch.utils.data.DataLoader,
-        config: BayesianTunerConfig = BayesianTunerConfig()
+        config: BayesianTunerConfig
     ) -> None:
         """        
         This method sets up the optimization environment, initializes tracking metrics, and makes sure the logging directory structure 
@@ -515,7 +661,6 @@ class BayesianTuner:
             train_loader (DataLoader): PyTorch DataLoader containing training data. Used to evaluate each trial's hyperparameter set.
             val_loader (DataLoader): PyTorch DataLoader containing validation data. Used to compute the optimization objective.
             config (BayesianTunerConfig): Configuration object containing optimization parameters, directory paths, and resource limits.
-                                          Uses default values if not provided.
         """
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -758,11 +903,22 @@ class BayesianTuner:
         # Set up logging to track optimization progress and enable run recovery
         optimizer.subscribe(Events.OPTIMIZATION_STEP, self.logger)
         
+        default_params = {
+            'hidden_dim': 256,          # from ModelConfig
+            'num_layers': 2,            # from ModelConfig
+            'dropout': 0.25,             # from ModelConfig
+            'sequence_length': 30,      # from ModelConfig
+            'learning_rate': 1e-4,      # from TrainConfig
+            'batch_size': 64            # from TrainConfig
+        }
+    
+        
+        # Register the default configuration as the first point
+        optimizer.probe(params=default_params, lazy=True)
+        
         optimizer.maximize(
-            init_points=5,                    # first 5 trials explore randomly to build initial model
-            n_iter=self.config.n_trials - 5,  # remaining trials use Bayesian optimization
-            acq='ei',                         # expected Improvement acquisition function for balanced exploration
-            xi=0.01                           # small xi prioritizes exploitation over exploration
+            init_points=3,     # 3 more random points (total 4 with default) within parameter bounds
+            n_iter=12          # remaining trials use Bayesian optimization for a total of 16
         )
         
         self._cleanup_old_trials()
@@ -798,3 +954,47 @@ class BayesianTuner:
         """
         best_model_path = Path(models_dir) / gas_type / 'best_model' / 'model.pth'
         return AtmoSeer.load_model(str(best_model_path), device) # this will restore both model architecture and learned parameters
+    
+    @staticmethod
+    def make_predictions(model, dates_to_predict, test_loader, target_scaler):
+        """
+        Make predictions for a list of dates with error handling.
+        
+        Args:
+            model: Trained AtmoSeer model
+            dates_to_predict: List of dates in MM/YYYY format
+            test_loader: PyTorch DataLoader for test data
+            target_scaler: StandardScaler for target variable
+        """
+        model.eval()
+        model.train(False)
+        parsed_dates = []
+        for date in dates_to_predict:
+            if '/' in date:
+                month, year = map(int, date.split('/'))
+                parsed_dates.append((pd.Timestamp(year=year, month=month, day=1), date))
+        
+        sorted_dates = [date[1] for date in sorted(parsed_dates)]
+        
+        for date in sorted_dates:
+            try:
+                prediction = model.predict(
+                    target_date=date,
+                    test_loader=test_loader,
+                    target_scaler=target_scaler,
+                    return_confidence=True
+                )
+                
+                print(f"\nPrediction for {date}:")
+                print(f"PPM: {prediction['prediction']:.2f}")
+                print(f"Confidence Interval: ({prediction['confidence_interval'][0]:.2f}, "
+                    f"{prediction['confidence_interval'][1]:.2f})")
+                
+                print("\nPrediction Metadata:")
+                print(f"Base Error Margin: {prediction['error_metadata']['base_error_margin']:.2f}")
+                print(f"Trend Scaling: {prediction['error_metadata']['trend_scaling']:.2f}")
+                print(f"Prediction Horizon (months): {prediction['error_metadata']['prediction_horizon_months']:.1f}")
+                
+            except Exception as e:
+                print(f"\nError predicting for {date}: {str(e)}")
+                continue
