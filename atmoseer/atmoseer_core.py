@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import random
 from configs.atmoseer_config import ModelConfig, TrainConfig, BayesianTunerConfig
 import numpy as np
 import pandas as pd
@@ -12,6 +13,13 @@ from typing import Dict, Any, Optional, Tuple, Union
 from bayes_opt import BayesianOptimization
 from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
+
+# Set random seeds for reproducibility, each package must be individually addressed to lock in randomized settings under the hood
+random.seed(10) # standard python
+np.random.seed(10) # numpy
+torch.manual_seed(10) # torch
+if torch.cuda.is_available(): # GPU
+    torch.cuda.manual_seed_all(10)
 
 class AtmoSeer(nn.Module):
     """
@@ -906,19 +914,18 @@ class BayesianTuner:
         default_params = {
             'hidden_dim': 256,          # from ModelConfig
             'num_layers': 2,            # from ModelConfig
-            'dropout': 0.25,             # from ModelConfig
+            'dropout': 0.25,            # from ModelConfig
             'sequence_length': 30,      # from ModelConfig
             'learning_rate': 1e-4,      # from TrainConfig
             'batch_size': 64            # from TrainConfig
         }
     
-        
         # Register the default configuration as the first point
         optimizer.probe(params=default_params, lazy=True)
         
         optimizer.maximize(
-            init_points=3,     # 3 more random points (total 4 with default) within parameter bounds
-            n_iter=12          # remaining trials use Bayesian optimization for a total of 16
+            init_points=1,     # 1 more random points (total 2 with default) within parameter bounds
+            n_iter=48          # remaining trials use Bayesian optimization for a total of 50
         )
         
         self._cleanup_old_trials()

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict
 import torch
 from pathlib import Path
 
@@ -33,11 +33,11 @@ class BayesianTunerConfig:
     
     param_bounds: Dict[str, tuple] = field(default_factory=lambda: {
         'hidden_dim': (256, 512),        # model capacity
-        'num_layers': (2, 3),            # model depth
+        'num_layers': (2, 4),            # model depth
         'dropout': (0.2, 0.4),           # regularization
         'sequence_length': (30, 90),     # temporal context
         'learning_rate': (1e-5, 1e-3),   # optimization rate
-        'batch_size': (32, 128)          # training size
+        'batch_size': (64, 128)          # training size
     })
     
     models_dir: Path = Path('../atmoseer/models')
