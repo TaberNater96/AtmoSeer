@@ -26,31 +26,27 @@ class TrainConfig:
 
 @dataclass
 class BayesianTunerConfig:
-    gas_type: str                      # type of gas being modeled (co2, ch4, n2o, sf6)
+    gas_type: str         # (co2, ch4, n2o, sf6)
     n_trials: int = 50
     timeout: int = None
     random_state: int = 10
     
     param_bounds: Dict[str, tuple] = field(default_factory=lambda: {
-        'hidden_dim': (256, 512),        # model capacity
-        'num_layers': (2, 4),            # model depth
-        'dropout': (0.2, 0.4),           # regularization
-        'sequence_length': (30, 90),     # temporal context
-        'learning_rate': (1e-5, 1e-3),   # optimization rate
-        'batch_size': (64, 128)          # training size
+        'hidden_dim': (256, 512), 
+        'num_layers': (2, 4), 
+        'dropout': (0.2, 0.4),
+        'sequence_length': (30, 90),
+        'learning_rate': (1e-5, 1e-3),
+        'batch_size': (64, 128)
     })
     
     models_dir: Path = Path('../atmoseer/models')
     
-    # Resource management
-    max_memory_gb: float = 0.95  
     cleanup_trials: bool = True 
     
     def __post_init__(self):
         self.models_dir = Path(self.models_dir)
         self.models_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create gas-specific directories
         self.gas_dir = self.models_dir / self.gas_type
         self.trials_dir = self.gas_dir / 'trials'
         self.best_model_dir = self.gas_dir / 'best_model'

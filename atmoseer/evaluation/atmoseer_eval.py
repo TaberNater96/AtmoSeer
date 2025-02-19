@@ -1,177 +1,185 @@
 import numpy as np
+import pandas as pd
 import torch
-from typing import Dict, Tuple
-import plotly.graph_objects as go
+from typing import Dict, List, Tuple, Optional
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from tabulate import tabulate
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
-class EvaluateAtmoSeer:
+class AtmoSeerEvaluator:
     def __init__(
-        self, 
-        gas_type: str, 
-        model: torch.nn.Module, 
-        test_loader: torch.utils.data.DataLoader
-    ) -> None:
-        self.gas_type = gas_type.upper()
+        self,
+        model: torch.nn.Module,
+        data_loaders: Dict,
+        device: Optional[torch.device] = None
+    ):
         self.model = model
-        self.test_loader = test_loader
-        self.true_values, self.predictions = self._get_predictions()
-        self.metrics = self._calculate_metrics()
-        self._display_metrics_table()
-        self._create_performance_plot()
-    
-    def _get_predictions(self) -> Tuple[np.ndarray, np.ndarray]:
+        self.data_loaders = data_loaders
+        self.device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
+        self.target_scaler = data_loaders.get('target_scaler')
+        
+    def _evaluate_dataloader(
+        self,
+        dataloader: torch.utils.data.DataLoader
+    ) -> Tuple[np.ndarray, np.ndarray]:
         self.model.eval()
-        true_values = []
-        predictions = []
+        y_true_list = []
+        y_pred_list = []
         
         with torch.no_grad():
-            for X_batch, y_batch in self.test_loader:
-                X_batch = X_batch.to(next(self.model.parameters()).device)
+            for X_batch, y_batch in dataloader:
+                X_batch = X_batch.to(self.device)
+                y_batch = y_batch.to(self.device)
                 y_pred = self.model(X_batch)
-                true_values.extend(y_batch.numpy())
-                predictions.extend(y_pred.cpu().numpy())
+                
+                # Move predictions and targets back to CPU for numpy conversion
+                y_true_list.extend(y_batch.cpu().numpy())
+                y_pred_list.extend(y_pred.cpu().numpy())
         
-        return np.array(true_values).reshape(-1), np.array(predictions).reshape(-1)
+        y_true = np.array(y_true_list)
+        y_pred = np.array(y_pred_list)
+        
+        if self.target_scaler:
+            y_true = self.target_scaler.inverse_transform(y_true.reshape(-1, 1)).flatten()
+            y_pred = self.target_scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
+        
+        return y_true, y_pred
     
-    def _calculate_metrics(self) -> Dict[str, float]:
-        metrics = {
-            'R² Score': r2_score(self.true_values, self.predictions),
-            'MSE': mean_squared_error(self.true_values, self.predictions),
-            'RMSE': np.sqrt(mean_squared_error(self.true_values, self.predictions)),
-            'MAE': mean_absolute_error(self.true_values, self.predictions),
-            'MAPE': np.mean(np.abs((self.true_values - self.predictions) / self.true_values)) * 100,
-            'Explained Variance': np.var(self.predictions) / np.var(self.true_values)
+    def evaluate(self) -> Dict[str, Dict[str, float]]:
+        metrics = {}
+        
+        # Evaluate train set
+        train_true, train_pred = self._evaluate_dataloader(self.data_loaders['train_loader'])
+        metrics['train'] = {
+            'mse': mean_squared_error(train_true, train_pred),
+            'rmse': np.sqrt(mean_squared_error(train_true, train_pred)),
+            'mae': mean_absolute_error(train_true, train_pred),
+            'mape': np.mean(np.abs((train_true - train_pred) / train_true)) * 100,
+            'r2': r2_score(train_true, train_pred)
         }
         
-        residuals = self.true_values - self.predictions
-        metrics.update({
-            'Mean Bias': np.mean(residuals),
-            'Residual Std': np.std(residuals),
-            'Max Error': np.max(np.abs(residuals))
-        })
+        # Evaluate test set
+        test_true, test_pred = self._evaluate_dataloader(self.data_loaders['test_loader'])
+        metrics['test'] = {
+            'mse': mean_squared_error(test_true, test_pred),
+            'rmse': np.sqrt(mean_squared_error(test_true, test_pred)),
+            'mae': mean_absolute_error(test_true, test_pred),
+            'mape': np.mean(np.abs((test_true - test_pred) / test_true)) * 100,
+            'r2': r2_score(test_true, test_pred)
+        }
+        
+        self.train_data = {'true': train_true, 'pred': train_pred}
+        self.test_data = {'true': test_true, 'pred': test_pred}
         
         return metrics
     
-    def _display_metrics_table(self) -> None:
-        table_data = []
-        for metric, value in self.metrics.items():
-            if abs(value) < 0.01 or abs(value) > 1000:
-                formatted_value = f"{value:.2e}"
-            else:
-                formatted_value = f"{value:.4f}"
-            table_data.append([metric, formatted_value])
+    def plot_results(
+        self,
+        gas_type: str,
+        dates: List[datetime],
+        forecast_length: int = 365
+    ) -> go.Figure:
+        # Generate forecast
+        last_sequence = next(iter(self.data_loaders['test_loader']))[0][-1:]
+        forecast = self.model.generate_forecast(
+            initial_sequence=last_sequence,
+            forecast_length=forecast_length,
+            device=self.device
+        )
         
-        print(f"\n{self.gas_type} Model Performance Metrics")
-        print("=" * 40)
-        print(tabulate(table_data, headers=['Metric', 'Value'], 
-                      tablefmt='fancy_grid', numalign='right'))
-    
-    def _create_performance_plot(self) -> None:
-        z = np.polyfit(self.true_values, self.predictions, 1)
-        regression_line = np.poly1d(z)
-        residuals = self.predictions - self.true_values
-        std_residuals = np.std(residuals)
-        prediction_interval = 1.96 * std_residuals
+        if self.target_scaler:
+            forecast = {
+                k: self.target_scaler.inverse_transform(
+                    v.reshape(-1, 1)
+                ).flatten() for k, v in forecast.items()
+            }
         
+        # Create figure
         fig = go.Figure()
         
+        # Add training data
         fig.add_trace(go.Scatter(
-            x=self.true_values,
-            y=self.predictions,
-            mode='markers',
-            name='Predictions',
-            marker=dict(
-                color='orange',
-                size=8,
-                opacity=0.6
-            )
+            x=dates[:len(self.train_data['true'])],
+            y=self.train_data['true'],
+            name='Train',
+            line=dict(color='#00B5F7', width=1.5)
         ))
         
-        min_val = min(self.true_values.min(), self.predictions.min())
-        max_val = max(self.true_values.max(), self.predictions.max())
-        line_range = np.linspace(min_val, max_val, 100)
-        
+        # Add test data
         fig.add_trace(go.Scatter(
-            x=line_range,
-            y=line_range,
-            mode='lines',
-            name='Perfect Prediction',
-            line=dict(color='white', dash='dash')
+            x=dates[len(self.train_data['true']):len(self.train_data['true'])+len(self.test_data['true'])],
+            y=self.test_data['true'],
+            name='Test',
+            line=dict(color='#FFA500', width=1.5)
         ))
         
-        fig.add_trace(go.Scatter(
-            x=line_range,
-            y=regression_line(line_range),
-            mode='lines',
-            name='Regression Line',
-            line=dict(color='orange')
-        ))
+        # Add forecast
+        forecast_dates = pd.date_range(dates[-1], dates[-1] + timedelta(days=forecast_length))
         
         fig.add_trace(go.Scatter(
-            x=line_range,
-            y=line_range + prediction_interval,
+            x=forecast_dates,
+            y=forecast['predictions'],
+            name='Forecast',
+            line=dict(color='#32CD32', width=1.5)
+        ))
+        
+        # Add confidence intervals
+        fig.add_trace(go.Scatter(
+            x=forecast_dates,
+            y=forecast['upper_bound'],
+            fill=None,
             mode='lines',
-            name='95% Prediction Interval',
-            line=dict(color='orange', dash='dot'),
+            line=dict(color='rgba(50, 205, 50, 0)'),
             showlegend=False
         ))
         
         fig.add_trace(go.Scatter(
-            x=line_range,
-            y=line_range - prediction_interval,
-            mode='lines',
-            line=dict(color='orange', dash='dot'),
+            x=forecast_dates,
+            y=forecast['lower_bound'],
             fill='tonexty',
-            fillcolor='rgba(255, 165, 0, 0.1)',
-            name='95% Prediction Interval'
+            mode='lines',
+            line=dict(color='rgba(50, 205, 50, 0)'),
+            fillcolor='rgba(50, 205, 50, 0.2)',
+            showlegend=False
         ))
         
+        # Update layout
         fig.update_layout(
-            title=dict(
-                text=f'AtmoSeer {self.gas_type} Model Performance',
-                font=dict(size=24, color='white')
-            ),
-            xaxis_title=f"Actual {self.gas_type} Concentration (ppm)",
-            yaxis_title=f"Predicted {self.gas_type} Concentration (ppm)",
-            plot_bgcolor='black',
-            paper_bgcolor='black',
-            font=dict(color='white'),
-            showlegend=True,
+            title=f'{gas_type.upper()} Concentration Forecast',
+            template='plotly_dark',
+            xaxis_title='Date',
+            yaxis_title=f'{gas_type.upper()} (ppm)',
             legend=dict(
-                bgcolor='rgba(0,0,0,0)',
-                bordercolor='white',
-                borderwidth=1
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,
+                bgcolor='rgba(0,0,0,0.5)'
             ),
-            width=1000,
-            height=800
+            margin=dict(l=20, r=20, t=40, b=20),
+            showlegend=True,
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)'
         )
         
+        # Update axes
         fig.update_xaxes(
+            showgrid=True,
+            gridwidth=0.5,
             gridcolor='rgba(128,128,128,0.2)',
-            zerolinecolor='rgba(128,128,128,0.2)'
+            showline=True,
+            linewidth=1,
+            linecolor='rgba(128,128,128,0.8)'
         )
+        
         fig.update_yaxes(
+            showgrid=True,
+            gridwidth=0.5,
             gridcolor='rgba(128,128,128,0.2)',
-            zerolinecolor='rgba(128,128,128,0.2)'
+            showline=True,
+            linewidth=1,
+            linecolor='rgba(128,128,128,0.8)'
         )
         
-        r2 = self.metrics['R² Score']
-        rmse = self.metrics['RMSE']
-        fig.add_annotation(
-            text=f'R² = {r2:.4f}<br>RMSE = {rmse:.4f}',
-            xref='paper',
-            yref='paper',
-            x=0.02,
-            y=0.98,
-            showarrow=False,
-            font=dict(size=16, color='white'),
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='white',
-            borderwidth=1
-        )
-        
-        fig.show()
-    
-    def get_metrics(self) -> Dict[str, float]:
-        return self.metrics
+        return fig
