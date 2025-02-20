@@ -17,8 +17,8 @@ class ModelConfig:
 class TrainConfig:
     batch_size: int = 64
     learning_rate: float = 1e-4
-    num_epochs: int = 50
-    early_stopping_patience: int = 10
+    num_epochs: int = 75
+    early_stopping_patience: int = 15
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     gradient_clip_val: float = 0.5
     gradient_accumulation_steps: int = 4
@@ -27,17 +27,17 @@ class TrainConfig:
 @dataclass
 class BayesianTunerConfig:
     gas_type: str         # (co2, ch4, n2o, sf6)
-    n_trials: int = 50
+    n_trials: int = 25
     timeout: int = None
     random_state: int = 10
     
     param_bounds: Dict[str, tuple] = field(default_factory=lambda: {
-        'hidden_dim': (256, 512), 
-        'num_layers': (2, 4), 
-        'dropout': (0.2, 0.4),
-        'sequence_length': (30, 90),
-        'learning_rate': (1e-5, 1e-3),
-        'batch_size': (64, 128)
+        'hidden_dim': (128, 384), 
+        'num_layers': (1, 3), 
+        'dropout': (0.2, 0.3),
+        'sequence_length': (14, 60),
+        'learning_rate': (1e-5, 1e-4),
+        'batch_size': (32, 96)
     })
     
     models_dir: Path = Path('../atmoseer/models')

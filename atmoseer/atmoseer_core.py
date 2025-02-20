@@ -196,7 +196,15 @@ class AtmoSeer(nn.Module):
         self.train_config = train_config
         self.to(train_config.device)
         optimizer = torch.optim.Adam(self.parameters(), lr=train_config.learning_rate)
-        criterion = nn.MSELoss()
+        criterion = nn.MSELoss() # monitor regression metric for validation loss
+        
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6
+        )
         
         # Track best validation loss for model checkpointing
         best_val_loss = float('inf')
@@ -204,7 +212,7 @@ class AtmoSeer(nn.Module):
         best_epoch = 0
         early_stopping_counter = 0
         min_delta = train_config.min_delta         # minimum change in validation loss to qualify as improvement
-        training_history = {'train_loss': [], 'val_loss': []}
+        training_history = {'train_loss': [], 'val_loss': [], 'learning_rates': []}
         best_state = None
         
         # Main training loop over epochs
@@ -239,8 +247,13 @@ class AtmoSeer(nn.Module):
             avg_train_loss = total_loss / len(train_loader)
             val_loss = self._validate(val_loader, criterion, train_config.device)
             
+            # Update the learning rate based on validation loss
+            scheduler.step(val_loss)
+            current_lr = optimizer.param_groups[0]['lr']
+            
             training_history['train_loss'].append(avg_train_loss)
             training_history['val_loss'].append(val_loss)
+            training_history['learning_rates'].append(current_lr)
             
             # Early stopping and model checkpoint logic
             if val_loss < (best_val_loss - min_delta):
@@ -645,6 +658,9 @@ class BayesianTuner:
             
             val_loss = history['best_val_loss']
             
+            # Small regularization term to encourage exploration around known well performant parameters
+            regularization = 0.01 * (abs(params['hidden_dim'] - 256) + abs(params['num_layers'] - 2) / 2)
+            
             # Update best model tracking if current trial shows improvement
             is_best = val_loss < self.best_val_loss
             if is_best:
@@ -664,7 +680,7 @@ class BayesianTuner:
             if self.current_trial % 5 == 0:   # periodic cleanup of older, suboptimal trials
                 self._cleanup_old_trials()
             
-            return -val_loss  # negative because we want to maximize
+            return -(val_loss + regularization)  # negative because we want to maximize
             
         except Exception as e:
             print(f"Trial {self.current_trial} failed: {str(e)}")
@@ -720,8 +736,8 @@ class BayesianTuner:
         optimizer.probe(params=default_params, lazy=True)
         
         optimizer.maximize(
-            init_points=4,     # 4 more random points (total 5 with default) within parameter bounds
-            n_iter=45          # remaining trials use Bayesian optimization for a total of 50
+            init_points=0,     # no random exploration
+            n_iter=24          # remaining trials use Bayesian optimization for a total of 25
         )
         
         self._cleanup_old_trials()
