@@ -198,12 +198,13 @@ class AtmoSeer(nn.Module):
         optimizer = torch.optim.Adam(self.parameters(), lr=train_config.learning_rate)
         criterion = nn.MSELoss() # monitor regression metric for validation loss
         
+        # Ff after 5 consecutive epochs, there is no improvement, multiply the learning rate by 0.5
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode='min',
             factor=0.5,
-            patience=5,
-            min_lr=1e-6
+            patience=5,   
+            min_lr=1e-6 # floor the learning rate
         )
         
         # Track best validation loss for model checkpointing
@@ -370,6 +371,8 @@ class AtmoSeer(nn.Module):
         if device is None:
             device = next(self.parameters()).device
             
+        self = self.to(device)
+        initial_sequence = initial_sequence.to(device)
         self.eval()
         
         # Create a copy of the initial sequence to avoid modifying the input
@@ -381,7 +384,7 @@ class AtmoSeer(nn.Module):
         
         with torch.no_grad():
             for _ in range(forecast_length):
-                pred = self(last_sequence.to(device))
+                pred = self(last_sequence)
                 pred = pred.cpu().numpy()
                 
                 # Creates 100 variations of the prediction by adding random Gaussian noise for uncertainty estimation
@@ -396,10 +399,14 @@ class AtmoSeer(nn.Module):
                 forecast_upper.append(upper)
                 forecast_lower.append(lower)
                 
-                # Update sequence for next prediction: remove oldest time step and append newest prediction
+                # For the next sequence, shift the window and update all features use the last sequence's features but shift them, 
+                last_features = last_sequence[:, -1:, :].clone() 
+                last_features[:, :, 0] = torch.tensor(pred[0][0]).to(device)  # update only the target variable
+                
+                # Shift the sequence window and add the new features
                 last_sequence = torch.cat((
-                    last_sequence[:, 1:, :],
-                    torch.FloatTensor(pred).reshape(1, 1, -1)
+                    last_sequence[:, 1:, :],  # remove oldest timestep
+                    last_features
                 ), dim=1)
                 
         return {

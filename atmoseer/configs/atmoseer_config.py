@@ -33,10 +33,10 @@ class BayesianTunerConfig:
     
     param_bounds: Dict[str, tuple] = field(default_factory=lambda: {
         'hidden_dim': (128, 384), 
-        'num_layers': (1, 3), 
+        'num_layers': (2, 3), 
         'dropout': (0.2, 0.3),
         'sequence_length': (14, 60),
-        'learning_rate': (1e-5, 1e-4),
+        'learning_rate': (1e-4, 1e-3),
         'batch_size': (32, 96)
     })
     
