@@ -32,12 +32,12 @@ class BayesianTunerConfig:
     random_state: int = 10
     
     param_bounds: Dict[str, tuple] = field(default_factory=lambda: {
-        'hidden_dim': (128, 384), 
+        'hidden_dim': (192, 320), 
         'num_layers': (2, 3), 
         'dropout': (0.2, 0.3),
-        'sequence_length': (14, 60),
-        'learning_rate': (1e-4, 1e-3),
-        'batch_size': (32, 96)
+        'sequence_length': (30, 60),
+        'learning_rate': (1e-5, 1e-3),
+        'batch_size': (48, 80)
     })
     
     models_dir: Path = Path('../atmoseer/models')
