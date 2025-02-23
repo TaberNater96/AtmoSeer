@@ -146,9 +146,8 @@ class AtmoSeer(nn.Module):
                           representing the predicted gas concentration for each sample.
         """
         # Apply input normalization
-        x = self.input_norm(x)
+        x = self.input_norm(x) # shape: [batch_size, seq_length, input_dim]
         
-        # x shape: [batch_size, seq_length, input_dim]
         lstm_out, _ = self.lstm(x) # shape: [batch_size, seq_length, hidden_dim*2] (if bidirectional)
         
         # Calculate attention scores for each time step and apply to only the last sequence

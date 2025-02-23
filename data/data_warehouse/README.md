@@ -1,1 +1,0 @@
-Staging warehouse for processed csv files. Data here is created as a backup and used to be loaded into PostgreSQL and AWS.
