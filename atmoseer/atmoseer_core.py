@@ -743,7 +743,7 @@ class BayesianTuner:
         
         optimizer.maximize(
             init_points=0,     # no random exploration
-            n_iter=24          # remaining trials use Bayesian optimization for a total of 25
+            n_iter=9           # remaining trials use Bayesian optimization for a total of 10
         )
         
         self._cleanup_old_trials()

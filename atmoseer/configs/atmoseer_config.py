@@ -27,7 +27,7 @@ class TrainConfig:
 @dataclass
 class BayesianTunerConfig:
     gas_type: str         # (co2, ch4, n2o, sf6)
-    n_trials: int = 25
+    n_trials: int = 10
     timeout: int = None
     random_state: int = 10
     
