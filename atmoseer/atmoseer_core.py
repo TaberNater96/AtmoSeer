@@ -50,6 +50,11 @@ class AtmoSeer(nn.Module):
         super().__init__()
         self.model_config = model_config
         self.train_config = train_config
+        
+        # Verify proper input_dim adjustment based on gas type 
+        if hasattr(model_config, 'gas_type') and model_config.gas_type != 'co2':
+            print(f"Initializing AtmoSeer for {model_config.gas_type} with input_dim={model_config.input_dim}")
+            
         self.input_norm = nn.LayerNorm(model_config.input_dim)
         
         self.lstm = nn.LSTM(
@@ -642,7 +647,8 @@ class BayesianTuner:
             'hidden_dim': int(params['hidden_dim']),
             'num_layers': int(params['num_layers']),
             'dropout': params['dropout'],
-            'sequence_length': int(params['sequence_length'])
+            'sequence_length': int(params['sequence_length']),
+            'gas_type': self.config.gas_type
         }
         
         train_params = {

@@ -75,6 +75,14 @@ class CO2_CH4ForecastHelper:
         # Encode site
         data['site'] = self.preprocessor.site_encoder.transform(data['site'])
         
+        # Check gas type to determine feature set
+        gas_type = getattr(self.model.model_config, 'gas_type', 'co2')
+        
+        # Initialize preprocessor with correct gas type
+        if self.preprocessor.gas_type != gas_type:
+            from atmoseer.preprocessors.atmoseer_preprocessor import AtmoSeerPreprocessor
+            self.preprocessor = AtmoSeerPreprocessor(gas_type=gas_type)
+        
         # Get feature columns in correct order
         feature_columns = (
             self.preprocessor.numeric_features +
@@ -87,16 +95,16 @@ class CO2_CH4ForecastHelper:
         sequence = data[feature_columns].values
         
         # Apply normalization using preprocessor's fitted scalers
-        numeric_idx = [feature_columns.index(f) for f in self.preprocessor.numeric_features]
-        temporal_idx = [feature_columns.index(f) for f in self.preprocessor.temporal_features]
-        lag_idx = [feature_columns.index(f) for f in self.preprocessor.lag_features]
+        numeric_idx = [feature_columns.index(f) for f in self.preprocessor.numeric_features if f in feature_columns]
+        temporal_idx = [feature_columns.index(f) for f in self.preprocessor.temporal_features if f in feature_columns]
+        lag_idx = [feature_columns.index(f) for f in self.preprocessor.lag_features if f in feature_columns]
         
         if numeric_idx:
-            sequence[:, numeric_idx] = self.preprocessor.scaler.transform(sequence[:, numeric_idx])
+            sequence[:, numeric_idx] = self.preprocessor.scaler.fit_transform(sequence[:, numeric_idx])
         if temporal_idx:
-            sequence[:, temporal_idx] = self.preprocessor.temporal_scaler.transform(sequence[:, temporal_idx])
+            sequence[:, temporal_idx] = self.preprocessor.temporal_scaler.fit_transform(sequence[:, temporal_idx])
         if lag_idx:
-            sequence[:, lag_idx] = self.preprocessor.lag_scaler.transform(sequence[:, lag_idx])
+            sequence[:, lag_idx] = self.preprocessor.lag_scaler.fit_transform(sequence[:, lag_idx])
         
         return torch.FloatTensor(sequence).unsqueeze(0)
     
@@ -322,6 +330,14 @@ class N2O_SF6ForecastHelper:
         # Encode site
         data['site'] = self.preprocessor.site_encoder.transform(data['site'])
         
+        # Check gas type to determine feature set
+        gas_type = getattr(self.model.model_config, 'gas_type', 'co2')
+        
+        # Initialize preprocessor with correct gas type
+        if self.preprocessor.gas_type != gas_type:
+            from atmoseer.preprocessors.atmoseer_preprocessor import AtmoSeerPreprocessor
+            self.preprocessor = AtmoSeerPreprocessor(gas_type=gas_type)
+        
         # Get feature columns in correct order
         feature_columns = (
             self.preprocessor.numeric_features +
@@ -334,16 +350,16 @@ class N2O_SF6ForecastHelper:
         sequence = data[feature_columns].values
         
         # Apply normalization using preprocessor's fitted scalers
-        numeric_idx = [feature_columns.index(f) for f in self.preprocessor.numeric_features]
-        temporal_idx = [feature_columns.index(f) for f in self.preprocessor.temporal_features]
-        lag_idx = [feature_columns.index(f) for f in self.preprocessor.lag_features]
+        numeric_idx = [feature_columns.index(f) for f in self.preprocessor.numeric_features if f in feature_columns]
+        temporal_idx = [feature_columns.index(f) for f in self.preprocessor.temporal_features if f in feature_columns]
+        lag_idx = [feature_columns.index(f) for f in self.preprocessor.lag_features if f in feature_columns]
         
         if numeric_idx:
-            sequence[:, numeric_idx] = self.preprocessor.scaler.transform(sequence[:, numeric_idx])
+            sequence[:, numeric_idx] = self.preprocessor.scaler.fit_transform(sequence[:, numeric_idx])
         if temporal_idx:
-            sequence[:, temporal_idx] = self.preprocessor.temporal_scaler.transform(sequence[:, temporal_idx])
+            sequence[:, temporal_idx] = self.preprocessor.temporal_scaler.fit_transform(sequence[:, temporal_idx])
         if lag_idx:
-            sequence[:, lag_idx] = self.preprocessor.lag_scaler.transform(sequence[:, lag_idx])
+            sequence[:, lag_idx] = self.preprocessor.lag_scaler.fit_transform(sequence[:, lag_idx])
         
         return torch.FloatTensor(sequence).unsqueeze(0)
     

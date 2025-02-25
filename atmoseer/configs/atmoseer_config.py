@@ -12,6 +12,13 @@ class ModelConfig:
     dropout: float = 0.25
     bidirectional: bool = True
     sequence_length: int = 30  # lookback window (30 days default)
+    gas_type: str = 'co2'
+    
+    def __post_init__(self):
+        """Adjust input_dim based on gas type if not explicitly set."""
+        if self.input_dim == 12 and self.gas_type != 'co2':
+            self.input_dim = 11 # ch4, n2o, sf6
+            print(f"Adjusted input_dim to {self.input_dim} for {self.gas_type} gas type")
     
 @dataclass
 class TrainConfig:

@@ -11,9 +11,15 @@ class AtmoSeerPreprocessor:
     temporal feature engineering, and sequence preparation for LSTM models. Maintains separate 
     scalers for different feature groups to preserve their relative relationships.
     """
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        gas_type: str = 'co2'
+    ) -> None:
         """
         Initialize preprocessor parameters.
+
+        Args:
+            gas_type: Type of gas to preprocess ('co2', 'ch4', 'n2o', 'sf6'). Defaults to 'co2'.
 
         Attributes:
             scaler: StandardScaler for numeric features
@@ -24,23 +30,50 @@ class AtmoSeerPreprocessor:
             numeric_features: List of numeric feature names
             temporal_features: List of temporal feature names
             lag_features: List of lag feature names
+            gas_type: Type of gas being analyzed
+            change_rate_feature: Specific change rate feature name for the gas type
         """
+        self.gas_type = gas_type.lower()
+        self._validate_gas_type()
+        
         self.scaler = StandardScaler()           # for numeric features
         self.temporal_scaler = StandardScaler()  # for temporal features
         self.lag_scaler = StandardScaler()       # for lag features
         self.target_scaler = StandardScaler()    # for target variable
         self.site_encoder = LabelEncoder()
         
+        # Determine the gas-specific change rate feature
+        self.change_rate_feature = f"{self.gas_type}_change_rate"
+        
         self.numeric_features = [
-            'latitude', 'longitude', 'altitude', 
-            'co2_change_rate', 'biomass_density'
+            'latitude', 
+            'longitude', 
+            'altitude', 
+            self.change_rate_feature
         ]
+
+        # Only include biomass_density for CO2 gas type
+        if self.gas_type == 'co2':
+            self.numeric_features.append('biomass_density')
         
         self.temporal_features = ['year']
         
         self.lag_features = [
             'ppm_lag_14', 'ppm_lag_30', 'ppm_lag_365'
         ]
+        
+    def _validate_gas_type(self) -> None:
+        """
+        Validate the gas type parameter.
+        
+        Raises:
+            ValueError: If gas_type is not one of the supported types
+        """
+        valid_gas_types = ['co2', 'ch4', 'n2o', 'sf6']
+        if self.gas_type not in valid_gas_types:
+            raise ValueError(
+                f"Invalid gas type: {self.gas_type}. Must be one of: {', '.join(valid_gas_types)}"
+            )
 
     def _handle_missing_values(
         self, 
@@ -154,7 +187,9 @@ class AtmoSeerPreprocessor:
         df = df.copy()
         
         if len(self.numeric_features) > 0:
-            df[self.numeric_features] = self.scaler.fit_transform(df[self.numeric_features])
+            valid_numeric_features = [f for f in self.numeric_features if f in df.columns]
+            if valid_numeric_features:
+                df[valid_numeric_features] = self.scaler.fit_transform(df[valid_numeric_features])
         
         if len(self.temporal_features) > 0:
             df[self.temporal_features] = self.temporal_scaler.fit_transform(df[self.temporal_features])
@@ -268,12 +303,53 @@ class AtmoSeerPreprocessor:
                 - input_dim: Number of input features
                 - target_scaler: Scaler used for the target variable
         """  
+        # First, handle any potential infinity values in the dataframe
+        numeric_columns = df.select_dtypes(include=np.number).columns
+        for col in numeric_columns:
+            # Replace infinity with NaN (will be handled by the missing value imputer)
+            mask = np.isinf(df[col])
+            if mask.any():
+                print(f"Warning: Found {mask.sum()} infinite values in column '{col}'. Replacing with NaN.")
+                df.loc[mask, col] = np.nan
+        
         self._validate_data(df, check_missing=True)
         df = df.sort_values('date').copy()
+        
+        # Remove biomass_density for non-CO2 gas types
+        if self.gas_type != 'co2' and 'biomass_density' in df.columns:
+            df = df.drop(columns=['biomass_density'])
+            print(f"Dropped 'biomass_density' column for {self.gas_type} gas type")
+        
         df = self._handle_missing_values(df)
         df = self._create_cyclic_features(df)
+        
+        # Handle potential outliers in numeric data by capping to percentiles
+        for col in self.numeric_features:
+            if col in df.columns:
+                q1 = df[col].quantile(0.001)  # 0.1% percentile
+                q3 = df[col].quantile(0.999)  # 99.9% percentile
+                outliers = (df[col] < q1) | (df[col] > q3)
+                if outliers.any():
+                    print(f"Capping {outliers.sum()} outliers in column '{col}'")
+                    df.loc[df[col] < q1, col] = q1
+                    df.loc[df[col] > q3, col] = q3
+        
         df['site'] = self.site_encoder.fit_transform(df['site'])
         df = self._normalize_features(df)
+        
+        if df['ppm'].isnull().any():
+            print(f"Warning: Found {df['ppm'].isnull().sum()} missing values in 'ppm'. Dropping rows.")
+            df = df.dropna(subset=['ppm'])
+        
+        # Check for extreme values in the target
+        ppm_mean = df['ppm'].mean()
+        ppm_std = df['ppm'].std()
+        ppm_outliers = (df['ppm'] < ppm_mean - 5*ppm_std) | (df['ppm'] > ppm_mean + 5*ppm_std)
+        if ppm_outliers.any():
+            print(f"Warning: Found {ppm_outliers.sum()} extreme values in 'ppm'. Capping values.")
+            df.loc[df['ppm'] < ppm_mean - 5*ppm_std, 'ppm'] = ppm_mean - 5*ppm_std
+            df.loc[df['ppm'] > ppm_mean + 5*ppm_std, 'ppm'] = ppm_mean + 5*ppm_std
+        
         df['ppm'] = self.target_scaler.fit_transform(df[['ppm']])
         
         feature_columns = (
@@ -282,6 +358,9 @@ class AtmoSeerPreprocessor:
             self.lag_features + 
             ['site', 'month_sin', 'month_cos']
         )
+        
+        # Ensure we only include columns that exist in the dataframe
+        feature_columns = [col for col in feature_columns if col in df.columns]
         
         X = df[feature_columns]
         y = df['ppm']
