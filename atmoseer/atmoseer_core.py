@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import random
-from configs.atmoseer_config import ModelConfig, TrainConfig, BayesianTunerConfig
+from atmoseer.configs.atmoseer_config import ModelConfig, TrainConfig, BayesianTunerConfig
 import numpy as np
 import json
 from datetime import datetime

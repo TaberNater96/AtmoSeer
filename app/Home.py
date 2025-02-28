@@ -35,6 +35,33 @@ def set_background_image(image_file):
             font-family: 'Courier New', monospace !important;
         }}
         
+        .sidebar .sidebar-content {{
+            background-color: rgba(0, 0, 0, 0.7);
+        }}
+        
+        /* Style navigation links */
+        section[data-testid="stSidebar"] li {{
+            padding-left: 20px;
+            border-left: 3px solid transparent;
+            transition: border-color 0.3s, background-color 0.3s;
+        }}
+        
+        section[data-testid="stSidebar"] li:hover {{
+            border-left: 3px solid #19a19a;
+            background-color: rgba(25, 161, 154, 0.2);
+        }}
+        
+        section[data-testid="stSidebar"] p {{
+            margin-bottom: 0;
+        }}
+        
+        /* Create a separator between home and pages */
+        section[data-testid="stSidebar"] ul div.block-container {{
+            border-bottom: 1px solid rgba(250, 250, 250, 0.2);
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+        }}
+        
         .title {{
             font-size: 10rem;
             font-weight: bold;
@@ -230,7 +257,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Get the absolute path to the images directory
+# Add a custom title to the sidebar
+st.sidebar.markdown("<h1 style='text-align: center; color:#19a19a; margin-bottom:20px;'>AtmoSeer</h1>", 
+                    unsafe_allow_html=True)
+
+# Add a description to the sidebar
+st.sidebar.markdown("<p style='font-weight: bold; color: white; text-align: center; margin-bottom: 25px;'>Navigate Through Different Greenhouse Gases</p>", 
+                    unsafe_allow_html=True)
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 images_dir = os.path.join(current_dir, "images")
 earth_img_path = os.path.join(images_dir, "Earth.jpg")
