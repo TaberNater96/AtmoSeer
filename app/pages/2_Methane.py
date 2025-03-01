@@ -11,6 +11,7 @@ import altair as alt
 from utils.ppm_lookup import NOAALookup
 from atmoseer.atmoseer_core import BayesianTuner
 from atmoseer.preprocessors.forecast_setup import CO2_CH4ForecastHelper
+from atmoseer.preprocessors.atmoseer_preprocessor import AtmoSeerPreprocessor
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -20,8 +21,8 @@ atmoseer_dir = os.path.join(project_root, 'atmoseer')
 sys.path.append(atmoseer_dir)
 
 st.set_page_config(
-    page_title="Carbon Dioxide | AtmoSeer",
-    page_icon="🌲",
+    page_title="Methane | AtmoSeer",
+    page_icon="🌾",
     layout="wide"
 )
 
@@ -72,15 +73,15 @@ st.sidebar.markdown("""
                     <h1 style='text-align: center; 
                     font-weight: bold;
                     font-size: 2.4rem;
-                    color:#04870b; 
-                    margin-top:10px;
+                    color:#ba5803; 
+                    margin-top: 10px;
                     margin-bottom:10px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CO₂</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CH₄</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown(f"""
                     <div style="text-align: center;">
-                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "co2_molecule.png"))}" width="200">
+                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "ch4_molecule.png"))}" width="150">
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -89,7 +90,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top:10px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Molar Mass:</strong> 44.01 g/mol</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Molar Mass:</strong> 16.04 g/mol</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -97,7 +98,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 37.11 J/mol·K</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 35.69 J/mol·K</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -105,7 +106,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 1.84 kg/m³</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 0.657 kg/m³</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -113,7 +114,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 1.45 g/L</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 0.0227 g/L</h1>
                     """, unsafe_allow_html=True)
 
 def set_background_image(image_file):
@@ -137,7 +138,7 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] {{
-            background-color: rgba(4, 135, 11, 0.25) !important;
+            background-color: rgba(186, 88, 3, 0.25) !important;
         }}
         
         section[data-testid="stSidebar"] li {{
@@ -148,8 +149,8 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li:hover {{
-            border-left: 3px solid #04870b;
-            background-color: rgba(4, 135, 11, 1.0);
+            border-left: 3px solid #ba5803;
+            background-color: rgba(186, 88, 3, 1.0);
             border-radius: 4px;
         }}
         
@@ -167,7 +168,6 @@ def set_background_image(image_file):
             position: absolute !important;
         }}
         
-        /* Alternative approach to hide anchor links */
         .header-anchor-link {{
             display: none !important;
         }}
@@ -176,13 +176,13 @@ def set_background_image(image_file):
             font-size: 3.5rem;
             font-weight: bold;
             text-align: center;
-            color: #04870b;
+            color: #ba5803;
             margin-bottom: 1.5rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
         .info-container {{
-            background-color: rgba(4, 135, 11, 0.5);
+            background-color: rgba(186, 88, 3, 0.5);
             padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -208,16 +208,15 @@ def set_background_image(image_file):
         
         .action-container {{
             background-color: rgba(255, 255, 255, 0.8);
-            padding: 1.5rem;
+            padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.0rem;
         }}
         
         .action-container h3 {{
-            color: #04870b;
+            color: #ba5803;
             font-weight: bold;
-            margin-bottom: 1rem;
             text-align: center;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
@@ -225,7 +224,7 @@ def set_background_image(image_file):
         .form-label {{
             font-size: 1.0rem;
             font-weight: bold;
-            color: #04870b;
+            color: #ba5803;
             margin-bottom: 0.01rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
@@ -240,7 +239,7 @@ def set_background_image(image_file):
         }}
         
         .results-header {{
-            color: #04870b;
+            color: #ba5803;
             font-weight: bold;
             margin-bottom: 1rem;
             font-size: 1.8rem;
@@ -257,7 +256,7 @@ def set_background_image(image_file):
         }}
         
         .metrics-header {{
-            color: #04870b;
+            color: #ba5803;
             font-weight: bold;
             margin-bottom: 1rem;
             text-align: center;
@@ -265,8 +264,8 @@ def set_background_image(image_file):
         }}
         
         .metric-card {{
-            background-color: rgba(4, 135, 11, 0.5);
-            border-left: 4px solid #04870b;
+            background-color: rgba(186, 88, 3, 0.5);
+            border-left: 4px solid #ba5803;
             padding: 0.1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
@@ -304,12 +303,12 @@ def format_date(d):
     return d.strftime("%B %d, %Y")
 
 @st.cache_data
-def load_co2_data():
-    """Load CO2 data from the data warehouse with caching."""
+def load_ch4_data():
+    """Load CH4 data from the data warehouse with caching."""
     try:
         data_paths = [
-            os.path.join(project_root, 'data', 'data_warehouse', 'co2_data.csv'),
-            os.path.join(project_root, 'data', 'data_warehouse', 'CO2DataNOAA.csv')
+            os.path.join(project_root, 'data', 'data_warehouse', 'ch4_data.csv'),
+            os.path.join(project_root, 'data', 'data_warehouse', 'CH4DataNOAA.csv')
         ]
         
         for path in data_paths:
@@ -320,10 +319,10 @@ def load_co2_data():
                 df = df.sort_values('date')
                 return df
         
-        st.error("Could not find CO2 data files. Please check your data paths.")
+        st.error("Could not find CH4 data files. Please check your data paths.")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error loading CO2 data: {str(e)}")
+        st.error(f"Error loading CH4 data: {str(e)}")
         return pd.DataFrame()
 
 @st.cache_resource
@@ -336,14 +335,14 @@ def init_lookup(data):
     return None
 
 @st.cache_resource
-def load_co2_model():
-    """Load the trained CO2 model with caching."""
+def load_ch4_model():
+    """Load the trained CH4 model with caching."""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = BayesianTuner.load_best_model(gas_type='co2', device=device)
+        model = BayesianTuner.load_best_model(gas_type='ch4', device=device)
         return model
     except Exception as e:
-        st.warning(f"Could not load CO2 model: {str(e)}. Using simple forecaster instead.")
+        st.warning(f"Could not load CH4 model: {str(e)}. Using simple forecaster instead.")
         return None
 
 # Define a simple forecast result class for when the actual model can't be loaded
@@ -360,7 +359,7 @@ class SimpleForecaster:
         
         days_diff = (pd.to_datetime(target_date) - pd.to_datetime(last_date)).days
         
-        yearly_increase = 2.5
+        yearly_increase = 10.0
         daily_increase = yearly_increase / 365
         
         predicted_ppm = last_ppm + (daily_increase * days_diff)
@@ -372,7 +371,8 @@ class SimpleForecaster:
                 self.lower_bound = lower
                 self.upper_bound = upper
         
-        uncertainty = 1.0 + (days_diff * 0.01)
+        # Create prediction with confidence bounds
+        uncertainty = 3.0 + (days_diff * 0.02)
         prediction = Prediction(
             date=target_date,
             ppm=predicted_ppm,
@@ -399,48 +399,48 @@ def main():
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     images_dir = os.path.join(current_dir, "../images")
-    forest_img_path = os.path.join(images_dir, "Forest.jpg")
+    grassland_img_path = os.path.join(images_dir, "Wetland.jpg")
     
-    if os.path.exists(forest_img_path):
-        set_background_image(forest_img_path)
+    if os.path.exists(grassland_img_path):
+        set_background_image(grassland_img_path)
     
-    st.markdown('<h1 class="page-title">Carbon Dioxide (CO₂)</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="page-title">Methane (CH₄)</h1>', unsafe_allow_html=True)
     
     with st.container():
         st.markdown("""
         <div class="info-container">
             <p>
-                Carbon dioxide (CO₂) is a colorless, odorless gas composed of one carbon atom bonded to two oxygen atoms. It's a 
-                fundamental component of Earth's carbon cycle, naturally produced through respiration, organic matter decomposition,
-                ocean-atmosphere exchange, and volcanic eruptions. Plants consume CO₂ during photosynthesis, converting it to 
-                oxygen and glucose. Industrially, it's essential in food processing as a preservative and for carbonated beverages,
-                serves as a fire extinguisher due to its non-flammability, and functions as a mild acid in various chemical 
-                processes. CO₂ dissolves easily in water to form carbonic acid, making it important for ocean chemistry, though
-                excessive dissolution leads to ocean acidification. Its solid form, dry ice, sublimates directly from solid to gas 
-                at -78.5°C, bypassing the liquid state at normal atmospheric pressure.
+                Methane (CH₄) is a colorless, odorless gas composed of one carbon atom bonded to four hydrogen atoms in a 
+                tetrahedral structure. It's the simplest alkane and primary component of natural gas, making up about 95% of 
+                natural gas by volume. Methane occurs naturally through the decomposition of organic matter in anaerobic (low-oxygen) 
+                conditions. Common sources include wetlands, termites, and ruminant animals (cows, sheep) during digestion. 
+                Human activities like rice cultivation, livestock farming, landfills, and fossil fuel extraction contribute 
+                significantly to atmospheric methane. Industrially, it serves as a key fuel source, a raw material for hydrogen
+                and synthetic gas production, and as a precursor for chemicals and plastics manufacturing. Methane is also the 
+                main component of natural gas used for heating and cooking in many homes and businesses.
             </p>
             <p>
-                As a greenhouse gas, CO₂ plays an important role in Earth's climate regulation by absorbing and re-emitting 
-                infrared radiation (heat). While it allows visible sunlight to pass through the atmosphere, it captures heat that 
-                would otherwise escape into space, a fundamental process for maintaining Earth's habitable temperature. However, 
-                since the Industrial Revolution, human activities like fossil fuel combustion, deforestation, and industrial 
-                processes have dramatically increased atmospheric CO₂ concentrations from pre-industrial levels of about 280 ppm 
-                to over 420 ppm today. This sharp incline of the greenhouse effect has accelerated global warming, contributing 
-                to the overall rising of global temperatures, sea level rise, altered precipitation patterns, and more frequent 
-                extreme weather events. The gas's long atmospheric residence time, hundreds to thousands of years in the atmosphere,
-                means that current emissions will influence climate conditions for generations to come. Even if all CO₂ emissions 
-                were to stop this very second, it would take thousands of years to get CO₂ level back to where they were before 
-                the Industrial Revolution.
+                As a greenhouse gas, methane has a much higher global warming potential than carbon dioxide, trapping 28-36 times 
+                more heat over a 100-year period, though it persists in the atmosphere for a shorter time (about 12 years compared 
+                to CO₂'s hundreds of years). Atmospheric methane concentrations have risen dramatically since pre-industrial 
+                times, from approximately 700 ppb (parts per billion) to over 1,900 ppm today. This increase significantly 
+                contributes to enhanced global warming beyond what would occur with CO₂ alone. Despite its shorter lifetime, 
+                methane's potency makes it a critical target for climate change mitigation efforts. Additionally, methane is 
+                flammable and can form explosive mixtures in air, posing safety hazards in enclosed spaces. It also participates 
+                in atmospheric chemistry, contributing to tropospheric ozone formation, which is both a greenhouse gas and air 
+                pollutant affecting human health and crop yields. In natural ecosystems, methane from thawing permafrost creates 
+                a concerning feedback loop as warming releases more of this potent greenhouse gas.
             </p>
+        </div>
         """, unsafe_allow_html=True)
     
-    co2_data = load_co2_data()
+    ch4_data = load_ch4_data()
     
-    if co2_data.empty:
+    if ch4_data.empty:
         st.error("No data available. Please check the data files in the data_warehouse directory.")
         return
     
-    lookup = init_lookup(co2_data)
+    lookup = init_lookup(ch4_data)
     lookup_available = lookup is not None
     
     # Main content area - 75% / 25% split
@@ -448,18 +448,18 @@ def main():
     
     with col1:
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">CO₂ Concentrations (From 1968)</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #ba5803; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">CH₄ Concentrations (From 1983)</h3>', unsafe_allow_html=True)
         
         chart_container = st.container()
         
-        # Only show and animate the chart when specifically requested via buttons
         show_chart = st.session_state.initial_load or st.session_state.lookup_requested or st.session_state.forecast_requested
         
         if show_chart:
-            filtered_data = co2_data.copy()
+            filtered_data = ch4_data.copy()
             show_forecast = False
             forecast_point = None
             
+            # Group by date and take first entry to ensure a single value per date
             filtered_data = filtered_data.sort_values('date').groupby('date').first().reset_index()
 
             if st.session_state.lookup_result is not None and st.session_state.lookup_requested:
@@ -482,11 +482,11 @@ def main():
                 'ppm': [filtered_data.iloc[0]['ppm']]
             })
 
-            chart = alt.Chart(initial_data).mark_line(color='#04870b').encode(
+            chart = alt.Chart(initial_data).mark_line(color='#ba5803').encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
-                        scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
+                        title='CH₄ Concentration (ppb)', 
+                        scale=alt.Scale(domain=[1600, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
                 height=550
@@ -510,11 +510,11 @@ def main():
                 
                 animation_data = pd.concat([animation_data, new_point])
                 
-                updated_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                updated_chart = alt.Chart(animation_data).mark_line(color='#ba5803').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
-                            scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
+                            title='CH₄ Concentration (ppb)', 
+                            scale=alt.Scale(domain=[1600, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
                     height=550
@@ -605,11 +605,11 @@ def main():
                     text='text:N'
                 )
                 
-                final_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                final_chart = alt.Chart(animation_data).mark_line(color='#ba5803').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
-                            scale=alt.Scale(domain=[300, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
+                            title='CH₄ Concentration (ppb)', 
+                            scale=alt.Scale(domain=[1600, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
                     height=550
@@ -629,15 +629,15 @@ def main():
             status_text.empty()
         else:
             placeholder_data = pd.DataFrame({
-                'date': [co2_data['date'].min(), co2_data['date'].max()],
-                'ppm': [co2_data['ppm'].min(), co2_data['ppm'].max()]
+                'date': [ch4_data['date'].min(), ch4_data['date'].max()],
+                'ppm': [ch4_data['ppm'].min(), ch4_data['ppm'].max()]
             })
             
-            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#04870b', opacity=0).encode(
+            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#ba5803', opacity=0).encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
-                        scale=alt.Scale(domain=[300, placeholder_data['ppm'].max() * 1.05]))
+                        title='CH₄ Concentration (ppb)', 
+                        scale=alt.Scale(domain=[1600, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
                 height=550
@@ -654,8 +654,8 @@ def main():
                 result = st.session_state.lookup_result
                 st.markdown(f"<h3 class='results-header'>Historical Data for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
+                <div style='background-color: rgba(186, 88, 3, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CH₄ Concentration:</strong> {result['ppm']:.2f} ppb</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -663,8 +663,8 @@ def main():
                 result = st.session_state.forecast_result
                 st.markdown(f"<h3 class='results-header'>Forecast for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
+                <div style='background-color: rgba(186, 88, 3, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CH₄ Concentration:</strong> {result['ppm']:.2f} ppb</p>
                     <p style='margin-bottom: 0.2rem; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>Confidence Interval:</strong> {result.get('lower_bound', 0):.2f} - {result.get('upper_bound', 0):.2f} ppm</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -681,7 +681,7 @@ def main():
     
     with col2:
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">Historical PPM Lookup</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #ba5803; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0); font-size: 1.6rem;">Historical PPB Lookup</h3>', unsafe_allow_html=True)
         st.markdown('<p class="form-label">Lookup Type</p>', unsafe_allow_html=True)
         
         lookup_type = st.radio(
@@ -691,10 +691,10 @@ def main():
         )
         
         if lookup_type == "Single Date":
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = ch4_data['date'].min().date()
+            max_date = ch4_data['date'].max().date()
             
-            st.markdown('<p class="form-label">Select Date From Jan 1968 to May 2024</p>', unsafe_allow_html=True)
+            st.markdown('<p class="form-label">Select Date From Jan 1983 to May 2024</p>', unsafe_allow_html=True)
             lookup_date = st.date_input(
                 "",
                 value=max_date,
@@ -719,8 +719,8 @@ def main():
                             st.warning("No data found for the selected date.")
                     else:
                         lookup_date_dt = pd.to_datetime(lookup_date)
-                        closest_idx = (co2_data['date'] - lookup_date_dt).abs().idxmin()
-                        record = co2_data.iloc[closest_idx]
+                        closest_idx = (ch4_data['date'] - lookup_date_dt).abs().idxmin()
+                        record = ch4_data.iloc[closest_idx]
                         st.session_state.lookup_result = {
                             'date': pd.to_datetime(record['date']),
                             'ppm': record['ppm'],
@@ -735,8 +735,8 @@ def main():
                     st.rerun()
         
         else:
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = ch4_data['date'].min().date()
+            max_date = ch4_data['date'].max().date()
             
             st.markdown('<p class="form-label">Start Date</p>', unsafe_allow_html=True)
             start_date = st.date_input(
@@ -787,8 +787,8 @@ def main():
                         else:
                             st.warning("No data found for the selected date range.")
                     else:
-                        mask = (co2_data['date'] >= pd.to_datetime(start_date)) & (co2_data['date'] <= pd.to_datetime(end_date))
-                        filtered_data = co2_data[mask]
+                        mask = (ch4_data['date'] >= pd.to_datetime(start_date)) & (ch4_data['date'] <= pd.to_datetime(end_date))
+                        filtered_data = ch4_data[mask]
                         
                         if not filtered_data.empty:
                             mid_idx = len(filtered_data) // 2
@@ -812,9 +812,9 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #ba5803; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
         
-        last_date = co2_data['date'].max().date()
+        last_date = ch4_data['date'].max().date()
         min_forecast = last_date + timedelta(days=1)
         max_forecast = last_date + timedelta(days=365)
         
@@ -830,10 +830,15 @@ def main():
         if st.button("Generate Forecast", key="generate_forecast"):
             with st.spinner("Generating forecast..."):
                 try:
-                    model = load_co2_model()
+                    model = load_ch4_model()
                     
                     if model is not None:
-                        forecaster = CO2_CH4ForecastHelper(model, co2_data)
+                        preprocessor = AtmoSeerPreprocessor(gas_type='ch4')
+                        preprocessor.prepare_data(ch4_data.copy())
+                        
+                        forecaster = CO2_CH4ForecastHelper(model, ch4_data)
+                        forecaster.preprocessor = preprocessor
+                        
                         prediction, historical = forecaster.predict_for_date(forecast_date)
                         
                         forecast_values = {
@@ -852,7 +857,7 @@ def main():
                             'historical': forecast_values 
                         }
                     else:
-                        forecaster = SimpleForecaster(co2_data)
+                        forecaster = SimpleForecaster(ch4_data)
                         prediction, _ = forecaster.predict_for_date(forecast_date)
                         
                         st.session_state.forecast_result = {
@@ -870,13 +875,13 @@ def main():
                 except Exception as e:
                     st.error(f"Error during forecasting: {str(e)}")
                     import traceback
-                    st.error(traceback.format_exc()) 
+                    st.error(traceback.format_exc())
         
         st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
-    st.markdown('<h3 class="metrics-header">AtmoSeer CO₂ Model Metrics</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="metrics-header">AtmoSeer CH₄ Model Metrics</h3>', unsafe_allow_html=True)
     
     met_col1, met_col2, met_col3, met_col4 = st.columns(4)
     
@@ -892,15 +897,15 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Best Validation Loss</p>
-            <p class="metric-value">0.0632</p>
+            <p class="metric-value">0.4707</p>
         </div>
         """, unsafe_allow_html=True)
     
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">NOAA CO₂ PPM Data Span</p>
-            <p class="metric-value">Jan 16, 1968 - May 31, 2024</p>
+            <p class="metric-title">NOAA CH₄ ppm Data Span</p>
+            <p class="metric-value">Jan 1, 1983 - May 31, 2024</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -918,7 +923,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Hidden Dimensions</p>
-            <p class="metric-value">264</p>
+            <p class="metric-value">258</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -934,7 +939,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Learning Rate</p>
-            <p class="metric-value">0.0001</p>
+            <p class="metric-value">0.000005</p>
         </div>
         """, unsafe_allow_html=True)
         
