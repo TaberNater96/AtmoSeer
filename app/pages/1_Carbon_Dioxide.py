@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import torch
 import os
 import sys
 import time
@@ -8,32 +9,28 @@ import base64
 from datetime import timedelta
 import altair as alt
 from utils.ppm_lookup import NOAALookup
+from atmoseer.atmoseer_core import BayesianTuner
+from atmoseer.preprocessors.forecast_setup import CO2_CH4ForecastHelper
 
-# Add the parent directory to the path to access other modules
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 sys.path.append(project_root)
 
-# Fix for 'configs' module not found error
 atmoseer_dir = os.path.join(project_root, 'atmoseer')
 sys.path.append(atmoseer_dir)
 
-# Set page configuration
 st.set_page_config(
     page_title="Carbon Dioxide | AtmoSeer",
     page_icon="🌲",
     layout="wide"
 )
 
-# Remove the empty white boxes
 st.markdown("""
 <style>
-    /* Target all empty containers and hide them */
     .element-container:empty {
         display: none !important;
     }
     
-    /* Hide any div with no content */
     div:empty {
         display: none !important;
     }
@@ -43,7 +40,6 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Hide those specific white boxes */
     .stBox {
         display: none !important;
     }
@@ -69,6 +65,57 @@ def get_base64_of_bin_file(bin_file):
         data = f.read()
     return base64.b64encode(data).decode()
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+images_dir = os.path.join(current_dir, "../images")
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: center; 
+                    font-weight: bold;
+                    font-size: 2.4rem;
+                    color:#04870b; 
+                    margin-top:150px;
+                    margin-bottom:10px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CO₂</h1>
+                    """, unsafe_allow_html=True)
+
+st.sidebar.markdown(f"""
+                    <div style="text-align: center;">
+                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "co2_molecule.png"))}" width="200">
+                    </div>
+                    """, unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: left; 
+                    font-size: 1.2rem;
+                    color:#FFFFFF; 
+                    margin-top:10px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Molar Mass:</strong> 44.01 g/mol</h1>
+                    """, unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: left; 
+                    font-size: 1.2rem;
+                    color:#FFFFFF; 
+                    margin-top: 0.5px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 37.11 J/mol·K</h1>
+                    """, unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: left; 
+                    font-size: 1.2rem;
+                    color:#FFFFFF; 
+                    margin-top: 0.5px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 1.84 kg/m³</h1>
+                    """, unsafe_allow_html=True)
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: left; 
+                    font-size: 1.2rem;
+                    color:#FFFFFF; 
+                    margin-top: 0.5px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 1.45 g/L</h1>
+                    """, unsafe_allow_html=True)
+
 def set_background_image(image_file):
     """Set an image as the page background using CSS."""
     bin_str = get_base64_of_bin_file(image_file)
@@ -89,6 +136,42 @@ def set_background_image(image_file):
             font-family: 'Courier New', monospace !important;
         }}
         
+        section[data-testid="stSidebar"] {{
+            background-color: rgba(4, 135, 11, 0.25) !important;
+        }}
+        
+        section[data-testid="stSidebar"] li {{
+            padding: 12px 20px;
+            margin-bottom: 5px;
+            font-size: 1.4rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0); 
+        }}
+        
+        section[data-testid="stSidebar"] li:hover {{
+            border-left: 3px solid #04870b;
+            background-color: rgba(4, 135, 11, 1.0);
+            border-radius: 4px;
+        }}
+        
+        /* Hide all annoying streamlit header anchor links */
+        .css-1629p8f h1 a, .css-1629p8f h2 a, .css-1629p8f h3 a, 
+        .css-1629p8f h4 a, .css-1629p8f h5 a, .css-1629p8f h6 a,
+        .stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a, 
+        .stMarkdown h4 a, .stMarkdown h5 a, .stMarkdown h6 a,
+        a.anchor, a.header-anchor {{
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            position: absolute !important;
+        }}
+        
+        /* Alternative approach to hide anchor links */
+        .header-anchor-link {{
+            display: none !important;
+        }}
+        
         .page-title {{
             font-size: 3.5rem;
             font-weight: bold;
@@ -100,27 +183,19 @@ def set_background_image(image_file):
         
         .info-container {{
             background-color: rgba(4, 135, 11, 0.5);
-            padding: 1.5rem;
+            padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
-            margin-bottom: 2rem;
-        }}
-        
-        .info-container h3 {{
-            font-size: 2.2rem;
-            color: #FFFFFF;
-            font-weight: bold;
             margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
         .info-container p {{
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             line-height: 1.0;
             color: #FFFFFF;
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
-            margin-bottom: 2rem;
+            margin-bottom: 1rem;
         }}
         
         .chart-container {{
@@ -144,6 +219,14 @@ def set_background_image(image_file):
             font-weight: bold;
             margin-bottom: 1rem;
             text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+        }}
+        
+        .form-label {{
+            font-size: 1.0rem;
+            font-weight: bold;
+            color: #04870b;
+            margin-bottom: 0.01rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
@@ -184,19 +267,22 @@ def set_background_image(image_file):
         .metric-card {{
             background-color: rgba(4, 135, 11, 0.5);
             border-left: 4px solid #04870b;
-            padding: 1rem;
+            padding: 0.1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
         }}
         
         .metric-title {{
+            text-align: center;
+            font-size: 1.0rem;
             font-weight: bold;
             color: #FFFFFF;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
         .metric-value {{
-            font-size: 1.5rem;
+            text-align: center;
+            font-size: 1.2rem;
             font-weight: bold;
             color: #FFFFFF;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
@@ -221,7 +307,6 @@ def format_date(d):
 def load_co2_data():
     """Load CO2 data from the data warehouse with caching."""
     try:
-        # Try different potential file names
         data_paths = [
             os.path.join(project_root, 'data', 'data_warehouse', 'co2_data.csv'),
             os.path.join(project_root, 'data', 'data_warehouse', 'CO2DataNOAA.csv')
@@ -231,9 +316,7 @@ def load_co2_data():
             if os.path.exists(path):
                 print(f"Loading data from {path}")
                 df = pd.read_csv(path)
-                # Ensure date is in datetime format
                 df['date'] = pd.to_datetime(df['date'])
-                # Sort by date
                 df = df.sort_values('date')
                 return df
         
@@ -252,6 +335,17 @@ def init_lookup(data):
         st.error(f"Error initializing NOAALookup: {str(e)}")
     return None
 
+@st.cache_resource
+def load_co2_model():
+    """Load the trained CO2 model with caching."""
+    try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model = BayesianTuner.load_best_model(gas_type='co2', device=device)
+        return model
+    except Exception as e:
+        st.warning(f"Could not load CO2 model: {str(e)}. Using simple forecaster instead.")
+        return None
+
 # Define a simple forecast result class for when the actual model can't be loaded
 class SimpleForecaster:
     def __init__(self, data):
@@ -261,21 +355,16 @@ class SimpleForecaster:
         """
         Generate a simple forecast based on historical trends.
         """
-        # Get the last available data point
         last_date = self.data['date'].max()
         last_ppm = self.data.loc[self.data['date'] == last_date, 'ppm'].values[0]
         
-        # Calculate days difference
         days_diff = (pd.to_datetime(target_date) - pd.to_datetime(last_date)).days
         
-        # Estimate yearly increase (about 2.5 ppm per year)
         yearly_increase = 2.5
         daily_increase = yearly_increase / 365
         
-        # Calculate estimated future value
         predicted_ppm = last_ppm + (daily_increase * days_diff)
         
-        # Simple class to match the expected interface
         class Prediction:
             def __init__(self, date, ppm, lower, upper):
                 self.date = date
@@ -284,7 +373,7 @@ class SimpleForecaster:
                 self.upper_bound = upper
         
         # Create prediction with confidence bounds
-        uncertainty = 1.0 + (days_diff * 0.01)  # Increases with time
+        uncertainty = 1.0 + (days_diff * 0.01)
         prediction = Prediction(
             date=target_date,
             ppm=predicted_ppm,
@@ -292,10 +381,8 @@ class SimpleForecaster:
             upper=predicted_ppm + uncertainty
         )
         
-        # Return prediction and an empty dict for historical
         return prediction, {}
 
-# Main function to run the app
 def main():
     # Set up session state to store results and other stateful data
     if 'lookup_result' not in st.session_state:
@@ -327,18 +414,29 @@ def main():
     with st.container():
         st.markdown("""
         <div class="info-container">
-            <h3>About Carbon Dioxide</h3>
             <p>
-                Carbon dioxide (CO₂) is a key greenhouse gas that contributes significantly to climate change. While natural processes 
-                emit CO₂, human activities—particularly burning fossil fuels and deforestation—have dramatically increased atmospheric 
-                concentrations since the Industrial Revolution.
+                Carbon dioxide (CO₂) is a colorless, odorless gas composed of one carbon atom bonded to two oxygen atoms. It's a 
+                fundamental component of Earth's carbon cycle, naturally produced through respiration, organic matter decomposition,
+                ocean-atmosphere exchange, and volcanic eruptions. Plants consume CO₂ during photosynthesis, converting it to 
+                oxygen and glucose. Industrially, it's essential in food processing as a preservative and for carbonated beverages,
+                serves as a fire extinguisher due to its non-flammability, and functions as a mild acid in various chemical 
+                processes. CO₂ dissolves easily in water to form carbonic acid, making it important for ocean chemistry, though
+                excessive dissolution leads to ocean acidification. Its solid form, dry ice, sublimates directly from solid to gas 
+                at -78.5°C, bypassing the liquid state at normal atmospheric pressure.
             </p>
             <p>
-                CO₂ persists in the atmosphere for hundreds to thousands of years, making it especially important to monitor and predict 
-                its levels for understanding long-term climate impacts. The measurements shown here come from NOAA's Global Monitoring 
-                Laboratory, spanning from 1968 to present, with future projections generated by AtmoSeer's deep learning model.
+                As a greenhouse gas, CO₂ plays an important role in Earth's climate regulation by absorbing and re-emitting 
+                infrared radiation (heat). While it allows visible sunlight to pass through the atmosphere, it captures heat that 
+                would otherwise escape into space, a fundamental process for maintaining Earth's habitable temperature. However, 
+                since the Industrial Revolution, human activities like fossil fuel combustion, deforestation, and industrial 
+                processes have dramatically increased atmospheric CO₂ concentrations from pre-industrial levels of about 280 ppm 
+                to over 420 ppm today. This sharp incline of the greenhouse effect has accelerated global warming, contributing 
+                to the overall rising of global temperatures, sea level rise, altered precipitation patterns, and more frequent 
+                extreme weather events. The gas's long atmospheric residence time, hundreds to thousands of years in the atmosphere,
+                means that current emissions will influence climate conditions for generations to come. Even if all CO₂ emissions 
+                were to stop this very second, it would take thousands of years to get CO₂ level back to where they were before 
+                the Industrial Revolution.
             </p>
-        </div>
         """, unsafe_allow_html=True)
     
     # Load data with caching
@@ -409,7 +507,7 @@ def main():
                         scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=500
+                height=550
             )
 
             # Display the initial chart
@@ -444,7 +542,7 @@ def main():
                             scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
-                    height=500
+                    height=550
                 )
                 chart_placeholder.altair_chart(updated_chart, use_container_width=True)
                 
@@ -474,28 +572,43 @@ def main():
                 last_historical_ppm = filtered_data.loc[filtered_data['date'] == latest_historical_date, 'ppm'].values[0]
                 forecast_ppm = st.session_state.forecast_result['ppm']
                 
-                # Create a date range from latest historical to forecast date
-                date_range = pd.date_range(start=latest_historical_date, end=forecast_date, freq='D')
-                
-                # Linear interpolation between last historical point and forecast point
-                ppm_values = np.linspace(last_historical_ppm, forecast_ppm, len(date_range))
-                
-                # Create the forecast dataframe
-                forecast_df = pd.DataFrame({
-                    'date': date_range,
-                    'ppm': ppm_values
-                })
-                
-                # Calculate confidence intervals (using the values from your forecast result)
-                lower_bound = st.session_state.forecast_result.get('lower_bound', 0)
-                upper_bound = st.session_state.forecast_result.get('upper_bound', 0)
-                
-                # Calculate the interval width percentage
-                interval_width = (upper_bound - lower_bound) / forecast_ppm
-                
-                # Apply this percentage to all points in the forecast line for a gradual widening effect
-                forecast_df['lower_bound'] = forecast_df['ppm'] * (1 - interval_width * np.linspace(0, 1, len(forecast_df)))
-                forecast_df['upper_bound'] = forecast_df['ppm'] * (1 + interval_width * np.linspace(0, 1, len(forecast_df)))
+                # Check if we have historical forecasts (from AtmoSeer model)
+                if 'historical' in st.session_state.forecast_result:
+                    historical_forecasts = st.session_state.forecast_result['historical']
+                    
+                    # Create forecast dataframe from all predictions
+                    forecast_data = []
+                    for date_str, values in historical_forecasts.items():
+                        forecast_data.append({
+                            'date': pd.to_datetime(date_str),
+                            'ppm': values['ppm'],
+                            'lower_bound': values['lower_bound'],
+                            'upper_bound': values['upper_bound']
+                        })
+                    
+                    forecast_df = pd.DataFrame(forecast_data)
+                    forecast_df = forecast_df.sort_values('date')
+                else:
+                    # Fallback to linear interpolation if no historical data
+                    date_range = pd.date_range(start=latest_historical_date, end=forecast_date, freq='D')
+                    ppm_values = np.linspace(last_historical_ppm, forecast_ppm, len(date_range))
+                    
+                    # Create the forecast dataframe
+                    forecast_df = pd.DataFrame({
+                        'date': date_range,
+                        'ppm': ppm_values
+                    })
+                    
+                    # Calculate confidence intervals (using the values from your forecast result)
+                    lower_bound = st.session_state.forecast_result.get('lower_bound', 0)
+                    upper_bound = st.session_state.forecast_result.get('upper_bound', 0)
+                    
+                    # Calculate the interval width percentage
+                    interval_width = (upper_bound - lower_bound) / forecast_ppm
+                    
+                    # Apply this percentage to all points in the forecast line for a gradual widening effect
+                    forecast_df['lower_bound'] = forecast_df['ppm'] * (1 - interval_width * np.linspace(0, 1, len(forecast_df)))
+                    forecast_df['upper_bound'] = forecast_df['ppm'] * (1 + interval_width * np.linspace(0, 1, len(forecast_df)))
                 
                 # Create the forecast line layer
                 forecast_line_layer = alt.Chart(forecast_df).mark_line(
@@ -509,7 +622,7 @@ def main():
                 # Create the confidence interval layer
                 confidence_interval = alt.Chart(forecast_df).mark_area(
                     color='gray',
-                    opacity=0.3
+                    opacity=0.6
                 ).encode(
                     x='date:T',
                     y='lower_bound:Q',
@@ -518,14 +631,14 @@ def main():
                 
                 # Add forecast label at the end of the forecast line
                 forecast_text = alt.Chart(pd.DataFrame({
-                    'date': [forecast_date],
+                    'date':[forecast_date - pd.Timedelta(days=30)],
                     'ppm': [forecast_ppm],
                     'text': ['Forecast']
                 })).mark_text(
                     align='left',
                     baseline='middle',
-                    dx=15,
-                    fontSize=12,
+                    dx=5,
+                    fontSize=14,
                     fontWeight='bold',
                     color='red'
                 ).encode(
@@ -542,7 +655,7 @@ def main():
                             scale=alt.Scale(domain=[300, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
-                    height=500
+                    height=550
                 )
                 
                 # Combine all layers
@@ -574,7 +687,7 @@ def main():
                         scale=alt.Scale(domain=[300, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=500
+                height=550
             )
             
             chart_container.altair_chart(placeholder_chart, use_container_width=True)
@@ -619,9 +732,10 @@ def main():
         # Historical data lookup section
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
         st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">Historical PPM Lookup</h3>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Lookup Type</p>', unsafe_allow_html=True)
         
         lookup_type = st.radio(
-            "Lookup Type",
+            "",
             ["Single Date", "Date Range"],
             horizontal=True
         )
@@ -631,8 +745,9 @@ def main():
             min_date = co2_data['date'].min().date()
             max_date = co2_data['date'].max().date()
             
+            st.markdown('<p class="form-label">Select Date From Jan 1968 to May 2024</p>', unsafe_allow_html=True)
             lookup_date = st.date_input(
-                "Select Date",
+                "",
                 value=max_date,
                 min_value=min_date,
                 max_value=max_date,
@@ -679,16 +794,18 @@ def main():
             min_date = co2_data['date'].min().date()
             max_date = co2_data['date'].max().date()
             
+            st.markdown('<p class="form-label">Start Date</p>', unsafe_allow_html=True)
             start_date = st.date_input(
-                "Start Date",
+                "",
                 value=min_date,
                 min_value=min_date,
                 max_value=max_date,
                 key="range_start_date"
             )
             
+            st.markdown('<p class="form-label">End Date</p>', unsafe_allow_html=True)
             end_date = st.date_input(
-                "End Date",
+                "",
                 value=min_date + pd.Timedelta(days=30),
                 min_value=min_date,
                 max_value=max_date,
@@ -766,8 +883,9 @@ def main():
         min_forecast = last_date + timedelta(days=1)
         max_forecast = last_date + timedelta(days=365)
         
+        st.markdown('<p class="form-label">Select Date From June 2024 to May 2025</p>', unsafe_allow_html=True)
         forecast_date = st.date_input(
-            "Select Forecast Date",
+            "",
             value=min_forecast + timedelta(days=30),
             min_value=min_forecast,
             max_value=max_forecast,
@@ -776,18 +894,42 @@ def main():
         
         if st.button("Generate Forecast", key="generate_forecast"):
             with st.spinner("Generating forecast..."):
-                # Use the simple forecaster until we fix the model imports
                 try:
-                    # Create a simple forecaster
-                    forecaster = SimpleForecaster(co2_data)
-                    prediction, _ = forecaster.predict_for_date(forecast_date)
+                    # Try to load the trained model
+                    model = load_co2_model()
                     
-                    st.session_state.forecast_result = {
-                        'date': pd.to_datetime(prediction.date),
-                        'ppm': prediction.ppm,
-                        'lower_bound': prediction.lower_bound,
-                        'upper_bound': prediction.upper_bound
-                    }
+                    if model is not None:
+                        # Use the actual CO2 forecaster with the trained model
+                        forecaster = CO2_CH4ForecastHelper(model, co2_data)
+                        prediction, historical = forecaster.predict_for_date(forecast_date)
+                        
+                        # Store all historical predictions in session state
+                        forecast_values = {
+                            date_val.strftime('%Y-%m-%d'): {
+                                'ppm': result.ppm,
+                                'lower_bound': result.lower_bound, 
+                                'upper_bound': result.upper_bound
+                            } for date_val, result in historical.items()
+                        }
+                        
+                        st.session_state.forecast_result = {
+                            'date': pd.to_datetime(prediction.date),
+                            'ppm': prediction.ppm,
+                            'lower_bound': prediction.lower_bound,
+                            'upper_bound': prediction.upper_bound,
+                            'historical': forecast_values 
+                        }
+                    else:
+                        # Fallback to simple forecaster if model couldn't be loaded
+                        forecaster = SimpleForecaster(co2_data)
+                        prediction, _ = forecaster.predict_for_date(forecast_date)
+                        
+                        st.session_state.forecast_result = {
+                            'date': pd.to_datetime(prediction.date),
+                            'ppm': prediction.ppm,
+                            'lower_bound': prediction.lower_bound,
+                            'upper_bound': prediction.upper_bound
+                        }
                     
                     # Clear any lookup result when showing forecast
                     st.session_state.lookup_result = None
@@ -798,14 +940,16 @@ def main():
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error during forecasting: {str(e)}")
+                    import traceback
+                    st.error(traceback.format_exc())  # Detailed error for debugging
         
+        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     # Model metrics section
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
-    st.markdown('<h3 class="metrics-header">CO₂ Model Performance Metrics</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="metrics-header">AtmoSeer CO₂ Model Metrics</h3>', unsafe_allow_html=True)
     
-    # Create 4 columns for metrics
     met_col1, met_col2, met_col3, met_col4 = st.columns(4)
     
     with met_col1:
@@ -819,24 +963,58 @@ def main():
     with met_col2:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">Mean Absolute Error</p>
-            <p class="metric-value">0.48 ppm</p>
+            <p class="metric-title">Best Validation Loss</p>
+            <p class="metric-value">0.0632</p>
         </div>
         """, unsafe_allow_html=True)
     
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">Training Data Span</p>
-            <p class="metric-value">1968 - 2024</p>
+            <p class="metric-title">NOAA CO₂ PPM Data Span</p>
+            <p class="metric-value">Jan 16, 1968 - May 31, 2024</p>
         </div>
         """, unsafe_allow_html=True)
     
     with met_col4:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">Bayesian Trials</p>
-            <p class="metric-value">16</p>
+            <p class="metric-title">Tuner</p>
+            <p class="metric-value">Bayesian Optimization</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    config_col1, config_col2, config_col3, config_col4 = st.columns(4)
+    
+    with config_col1:
+        st.markdown("""
+        <div class="metric-card">
+            <p class="metric-title">Hidden Dimensions</p>
+            <p class="metric-value">264</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with config_col2:
+        st.markdown("""
+        <div class="metric-card">
+            <p class="metric-title">Number of Layers</p>
+            <p class="metric-value">2</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with config_col3:
+        st.markdown("""
+        <div class="metric-card">
+            <p class="metric-title">Learning Rate</p>
+            <p class="metric-value">0.0001</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with config_col4:
+        st.markdown("""
+        <div class="metric-card">
+            <p class="metric-title">Sequence Length</p>
+            <p class="metric-value">30 Days</p>
         </div>
         """, unsafe_allow_html=True)
     

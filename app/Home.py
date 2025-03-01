@@ -35,31 +35,21 @@ def set_background_image(image_file):
             font-family: 'Courier New', monospace !important;
         }}
         
-        .sidebar .sidebar-content {{
-            background-color: rgba(0, 0, 0, 0.7);
+        section[data-testid="stSidebar"] {{
+            background-color: rgba(25, 161, 154, 0.25) !important;
         }}
         
-        /* Style navigation links */
         section[data-testid="stSidebar"] li {{
-            padding-left: 20px;
-            border-left: 3px solid transparent;
-            transition: border-color 0.3s, background-color 0.3s;
+            padding: 12px 20px;
+            margin-bottom: 5px;  /* Add space between buttons */
+            font-size: 1.4rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0); 
         }}
         
         section[data-testid="stSidebar"] li:hover {{
             border-left: 3px solid #19a19a;
-            background-color: rgba(25, 161, 154, 0.2);
-        }}
-        
-        section[data-testid="stSidebar"] p {{
-            margin-bottom: 0;
-        }}
-        
-        /* Create a separator between home and pages */
-        section[data-testid="stSidebar"] ul div.block-container {{
-            border-bottom: 1px solid rgba(250, 250, 250, 0.2);
-            margin-bottom: 10px;
-            padding-bottom: 10px;
+            background-color: rgba(25, 161, 154, 1.0);
+            border-radius: 4px;
         }}
         
         .title {{
@@ -92,7 +82,7 @@ def set_background_image(image_file):
         
         .author-name {{
             margin: 0;
-            color: #ba5803;
+            color: #FFFFFF;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
             font-size: 2.5rem;
             font-weight: bold;
@@ -114,13 +104,31 @@ def set_background_image(image_file):
             margin-bottom: 0.1rem;
         }}
         
-        .project-description p {{
+        .project-description-header {{
             color: #19a19a;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
-            font-size: 1.8rem;
-            line-height: 1.5;
+            font-size: 2.4rem;
+            text-align: center;
             font-weight: bold;
             margin-left: 1.0rem;
+        }}
+        
+        .project-description p {{
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 1.0rem;
+            border-radius: 10px;
+            color: #000000;
+            font-weight: bold; 
+            font-size: 1.4rem;
+            line-height: 1.5;
+        }}
+        
+        .data-source-header {{
+            color: #19a19a;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            font-size: 2.4rem;
+            text-align: center;
+            font-weight: bold;
         }}
         
         .data-source {{
@@ -134,18 +142,13 @@ def set_background_image(image_file):
             justify-content: space-between;
         }}
         
-        .data-source h3 {{
-            text-align: center;
-            color: #0A3161;  /* Navy blue */
-            font-weight: bold;
-        }}
-        
         .data-source p {{
             text-align: left;
             line-height: 1.5;
             margin-bottom: 1rem;
             color: #000000;
-            font-weight: bold; 
+            font-weight: bold;
+            font-size: 1.4rem;
         }}
         
         .data-source a {{
@@ -213,7 +216,13 @@ def set_background_image(image_file):
         }}
         
         .pipeline-text p {{
-            line-height: 1.8;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 0.5rem;
+            border-radius: 10px;
+            color: #000000;
+            font-weight: bold; 
+            font-size: 1.35rem;
+            line-height: 1.5;
         }}
         
         .analytics-image {{
@@ -223,7 +232,13 @@ def set_background_image(image_file):
         }}
         
         .analytics-text p {{
-            line-height: 1.8;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 0.5rem;
+            border-radius: 10px;
+            color: #000000;
+            font-weight: bold; 
+            font-size: 1.35rem;
+            line-height: 1.5;
         }}
         
         .dl-image {{
@@ -233,7 +248,13 @@ def set_background_image(image_file):
         }}
         
         .dl-text p {{
-            line-height: 1.8;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 0.5rem;
+            border-radius: 10px;
+            color: #000000;
+            font-weight: bold; 
+            font-size: 1.35rem;
+            line-height: 1.5;
         }}
         
         .front-image {{
@@ -242,8 +263,14 @@ def set_background_image(image_file):
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
         }}
         
-        .front-image p {{
-            line-height: 1.8;
+        .front-text p {{
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 0.5rem;
+            border-radius: 10px;
+            color: #000000;
+            font-weight: bold; 
+            font-size: 1.35rem;
+            line-height: 1.5;
         }}
     </style>
     '''
@@ -257,20 +284,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Add a custom title to the sidebar
-st.sidebar.markdown("<h1 style='text-align: center; color:#19a19a; margin-bottom:20px;'>AtmoSeer</h1>", 
-                    unsafe_allow_html=True)
-
-# Add a description to the sidebar
-st.sidebar.markdown("<p style='font-weight: bold; color: white; text-align: center; margin-bottom: 25px;'>Navigate Through Different Greenhouse Gases</p>", 
-                    unsafe_allow_html=True)
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 images_dir = os.path.join(current_dir, "images")
 earth_img_path = os.path.join(images_dir, "Earth.jpg")
 
 # Set the background image with proper path
 set_background_image(earth_img_path)
+
+st.sidebar.markdown("""
+                    <h1 style='text-align: center; 
+                    font-size: 1.4rem;
+                    color:#19a19a; 
+                    margin-top: 115px;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>Navigate Through Each Gas Type Here</h1>
+                    """, unsafe_allow_html=True)
 
 # Header Section with author and GitHub link in a row
 st.markdown('<h1 class="title">AtmoSeer</h1>', unsafe_allow_html=True)
@@ -288,9 +315,41 @@ st.markdown(f"""
 st.markdown("""
 <div class="project-description">
     <p>
-        AtmoSeer is a comprehensive environmental data science project focused on greenhouse gas prediction. Using advanced machine learning 
-        techniques and data from NOAA's Global Monitoring Laboratory, AtmoSeer analyzes historical greenhouse gas measurements to predict 
-        future concentrations of CO2, CH4, N2O, and SF6.
+        AtmoSeer is an extremely comprehensive full-stack data science project that brings predictive atmospheric science to 
+        the fingertips of anyone. Unlike most existing tools that only analyze historical greenhouse gas data, AtmoSeer leverages 
+        an advanced deep learning algorithm to forecast future emission levels with statistical confidence intervals. 
+        <br>
+        <br>
+        This project represents a complete data pipeline: from extracting raw measurements directly from NOAA's Global Monitoring Laboratory 
+        and NASA MODIS databases, through advanced data engineering, to deploying state-of-the-art time series analysis models. 
+        AtmoSeer tracks four of some of the most potent greenhouse gases that drive climate change: CO₂, CH₄, N₂O, and SF₆.
+        <br>
+        <br>
+        At the core of AtmoSeer is a custom-built Bidirectional LSTM neural network architecture with an attention mechanism, optimized 
+        through Bayesian hyperparameter tuning. This model captures both long-term trends and seasonal patterns in atmospheric gas 
+        concentrations through cyclical seasonal awareness that was created during feature engineering, which pairs perfectly with 
+        the LSTM's ability to learn both long-term trends going decades back and recent patterns that from only a few week prior. 
+        <br>
+        <br>
+        This project was designed as an open-source contribution to climate science, providing researchers, educators, and concerned citizens 
+        with powerful tools to understand and anticipate atmospheric changes that shape Earth's future. 
+    </p>
+</div>
+<h4 class="project-description-header">Forecasting Earth's Atmospheric Future</h4>
+<div class="project-description">
+    <p>
+        To get started, simply select a gas type from the sidebar to get some background on the gas and view some the historical 
+        emission trends. To lookup a ppm value for a specific date, select the date from the dropdown menu next to the graph, it has
+        the option to choose a single date or a range of dates. The graph will update to show all historical data up to that point as
+        well as output the ppm value for that date (or range of dates) underneath the graph. Then to forecast future emission levels
+        for a specifc date, use AtmoSeer forecaster (underneath the ppm lookup) to generate a forecast for the selected date. 
+        <br>
+        <br>
+        AtmoSeer will generate predictions for each day past the last recorded date up to the selected date, so the further out the forecast is,
+        the longer the model will take to generate the forecast. At the time of this project's completion, there is only data 
+        available up to a certain date depending on the gas type, since NOAA does not release real time data in their Global Monitoring Laboratory. Therefore,
+        for each gas type, there will be a range of dates that can be looked up, and all dates past that should be forecasted. For example
+        CO₂ data is available up to May 31, 2024, so any date past that will need to be generated using AtmoSeer.
     </p>
 </div>
 """, unsafe_allow_html=True)
@@ -313,11 +372,12 @@ col1, col2 = st.columns(2, gap="medium")
 
 with col1:
     st.markdown("""
+    <div class="data-source-header">NOAA GML</div>
     <div class="data-source">
-        <h3>NOAA GML</h3>
         <p>
-            Primary source for atmospheric greenhouse gas measurements spanning back to 1968.
-            Provides global coverage with high precision measurements from monitoring stations worldwide.
+            Primary source for atmospheric greenhouse gas measurements spanning from back to January of 1968. All datasets
+            were gathered from ground based measurement stations, that were spread out across the globe. Not all gases were 
+            recorded at the same time, so lookup dates will vary depending on the gas type.
         </p>
         <div style="margin-top: auto; text-align: center;">
             <a href="https://gml.noaa.gov/aftp/data/greenhouse_gases/" target="_blank">Data Repository</a>
@@ -327,11 +387,12 @@ with col1:
 
 with col2:
     st.markdown("""
+    <div class="data-source-header">NASA MODIS</div>
     <div class="data-source">
-        <h3>NASA MODIS</h3>
         <p>
             Satellite data used for biomass density calculations and environmental correlations.
-            Enhances predictive capability by incorporating vegetation patterns into models.
+            Gathered and calculated during the feature engineering phase to enhace AtmoSeer by incorporating vegetation 
+            patterns into the models. An account with NASA MODIS is required to access the data and access their API.
         </p>
         <div style="margin-top: auto; text-align: center;">
             <a href="https://modis.gsfc.nasa.gov/data/" target="_blank">Data Repository</a>
@@ -345,13 +406,18 @@ pipeline_col1, pipeline_col2 = st.columns(2, gap="medium")
 
 with pipeline_col1:
     st.markdown("""
-    <div class="project-description pipeline-text">
+    <div class="pipeline-text">
         <p>
-            The AtmoSeer pipeline follows a systematic ETL (Extract, Transform, Load) approach:
-            <br><br>
-            <strong>Extract:</strong> Data is sourced from NOAA GML and NASA MODIS cloud databases using web scraping techniques and API requests.
-            <br><br>
-            <strong>Transform:</strong> The extracted data undergoes several processing steps using Python and Pandas, including handling missing values, detecting duplicates, coercing data types, verifying data quality, and chronological ordering.
+            AtmoSeer's foundation began with a robust Extract-Transform-Load pipeline that sourced greenhouse gas measurements 
+            directly from NOAA's Global Monitoring Laboratory and vegetation density data from NASA MODIS satellites. The
+            extraction process used custom-built web scrapers and API interfaces to gather decades of atmospheric measurements 
+            from monitoring stations worldwide. 
+            <br>
+            <br>
+            This raw data was transformed and cleaned using data engineering techniques such
+            as imputing missing values using temporal interpolation, standardizing measurements to ensure all data was on the same
+            scale such as turning hourly measurements into daily measurements, verifying data quality, and detecting outliers. This 
+            data is then loaded into a PostgreSQL database that serves as the central data warehouse, with AWS as a backup cloud database.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -369,11 +435,11 @@ analysis_col1, analysis_col2 = st.columns(2, gap="medium")
 
 with analysis_col1:
     st.markdown("""
-    <div class="project-description analytics-text">
+    <div class="analytics-text">
         <p>
-            The AtmoSeer pipeline follows a systematic ETL (Extract, Transform, Load) approach:
-            <br><br>
-            <strong>Extract:</strong> Data is sourced from NOAA GML and NASA MODIS cloud databases using web scraping techniques and API requests.
+            The exploratory data analysis phase is used to identify trends, patterns, and correlations in the data. This is
+            critical in understanding what is driving the dynamics of greenhouse gas concentrations in the atmosphere. Once insight
+            into the data is gained, features such as vegetation density, cyclical encodings, and lagged variations are engineered.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -391,11 +457,20 @@ dl_col1, dl_col2 = st.columns(2, gap="medium")
 
 with dl_col1:
     st.markdown("""
-    <div class="project-description dl-text">
+    <div class="dl-text">
         <p>
-            The AtmoSeer pipeline follows a systematic ETL (Extract, Transform, Load) approach:
-            <br><br>
-            <strong>Extract:</strong> Data is sourced from NOAA GML and NASA MODIS cloud databases using web scraping techniques and API requests.
+            As stated before, the foundation of AtmoSeer is a custom-built Bidirectional LSTM neural network architecture with a
+            Bayesian Optimization algorithm that acts as a wrapper for hyperparameter tuning. The core architecture of AtmoSeer 
+            allows the BiLSTM to capture both long-term trends and seasonal patterns in BOTH directions, allowing it to learn how
+            past patterns influence future patterns. Layer normalization, dropout rates, attention mechanisms, and learning rate
+            warmups were all used to guide the model towards its most optimal state. 
+            <br>
+            <br>
+            The Bayesian Optimization framework is designed
+            to intelligently search for the best set of hyperparameters using Bayes' Theorem to use past results to influence future results.
+            It achieves this by taking a hyperparameter space and seeing how the model performs when hyperparameters are increased 
+            or decreased, influencing the next set of hyperparameters to be tested. During training GPU acceleration and memory management
+            techniques were implemented to greatly increase training speed while reducing memory usage.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -413,11 +488,13 @@ front_col1, front_col2 = st.columns(2, gap="medium")
 
 with front_col1:
     st.markdown("""
-    <div class="project-description front-text">
+    <div class="front-text">
         <p>
-            The AtmoSeer pipeline follows a systematic ETL (Extract, Transform, Load) approach:
-            <br><br>
-            <strong>Extract:</strong> Data is sourced from NOAA GML and NASA MODIS cloud databases using web scraping techniques and API requests.
+            Once all 4 gas types have been gathered and used to train their own specific model, each of the models are woven into 
+            streamlit's front end framework to create a friendly user interface that allows users to interact with AtmoSeer to 
+            forecast future ppm values as well as look up historical ppm values. Here, users can get background on each of the 
+            gas types and see the full history of how each of these gases have been increasing year by year and gain an intuition
+            on how these gas concentrations will continue to increase into the future.
         </p>
     </div>
     """, unsafe_allow_html=True)
