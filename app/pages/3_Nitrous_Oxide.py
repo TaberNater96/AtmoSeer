@@ -73,8 +73,8 @@ st.sidebar.markdown("""
                     font-weight: bold;
                     font-size: 2.4rem;
                     color:#2145d4; 
-                    margin-top: 10px;
-                    margin-bottom:10px;
+                    margin-top: 5px;
+                    margin-bottom:5px;
                     text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>N₂O</h1>
                     """, unsafe_allow_html=True)
 
@@ -140,9 +140,9 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li {{
-            padding: 12px 20px;
-            margin-bottom: 5px;
-            font-size: 1.4rem;
+            padding: 8px 20px;
+            margin-bottom: 2px;
+            font-size: 1.2rem;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0); 
         }}
         
@@ -408,28 +408,28 @@ def main():
         st.markdown("""
         <div class="info-container">
             <p>
-                Nitrous oxide (N₂O) is a colorless, non-flammable gas with a slightly sweet odor, often known as "laughing gas." 
-                Its molecular structure consists of two nitrogen atoms bonded to one oxygen atom. N₂O is naturally produced 
-                in soils through microbial processes, particularly nitrification and denitrification. These biological 
-                processes convert nitrogen from various forms (like ammonia or nitrate) into N₂O. Natural sources include 
-                soils under natural vegetation and oceans. However, human activities have significantly increased N₂O emissions, 
-                primarily through agricultural practices that add nitrogen to soil through fertilizers, promoting microbial 
-                N₂O production. Other anthropogenic sources include industrial processes, fossil fuel combustion, wastewater 
-                treatment, and biomass burning. N₂O has various applications, most notably as an anesthetic and analgesic in 
-                medical and dental settings, and as an oxidizer in rocket propellants and motor racing to increase engine power.
+                Nitrous oxide (N₂O) is a colorless, non-flammable gas with a slightly sweet odor, often known as "laughing gas", 
+                that occurs naturally in our atmosphere but has increased significantly due to human activities. Often overlooked 
+                in climate discussions, N₂O is approximately 300 times more effective at trapping heat than carbon dioxide over a 
+                100-year period and persists in the atmosphere for about 114 years. Agricultural soils represent the largest 
+                anthropogenic source, accounting for roughly 60 percent of human-caused N₂O emissions. These emissions primarily result 
+                from microbial processes in soil when nitrogen-based fertilizers are applied, especially when fertilizer exceeds 
+                plant requirements. During nitrification and denitrification processes, soil microorganisms convert various forms
+                of nitrogen, releasing N₂O as a byproduct. Environmental factors that influence these emissions include soil 
+                moisture, temperature, pH, and oxygen availability, with emissions typically increasing in warm, wet conditions 
+                with high nitrogen availability.
             </p>
             <p>
-                As a greenhouse gas, N₂O is extremely potent, with a global warming potential approximately 300 times greater 
-                than CO₂ over a 100-year period. It persists in the atmosphere for about 114 years before being removed by 
-                chemical reactions or uptake by certain types of bacteria. The atmospheric concentration of N₂O has increased 
-                from about 270 ppb (parts per billion) in pre-industrial times to over 335 ppb today. Although present in 
-                smaller quantities than CO₂, its high warming potential makes it a significant contributor to climate change. 
-                Beyond its climate impact, N₂O in the stratosphere participates in reactions that deplete ozone. In fact, 
-                N₂O is currently considered the most significant ozone-depleting substance being emitted. In high concentrations, 
-                N₂O can cause oxygen deprivation and certain neurological effects, though environmental levels are too low 
-                to cause these direct health impacts. The combination of N₂O's long atmospheric lifetime, potent warming 
-                capacity, and ozone-depleting properties makes it a critical target for emission reduction efforts, particularly 
-                through improved agricultural practices and industrial controls.
+                Beyond agriculture, other N₂O sources include industrial processes, combustion of fossil fuels,
+                wastewater treatment, and biomass burning. In the atmosphere, N₂O contributes to both atmospheric warming and 
+                stratospheric ozone depletion. After rising to the stratosphere, it undergoes photochemical reactions that 
+                produce nitrogen oxides, which subsequently catalyze ozone destruction. This dual impact makes N₂O reduction 
+                particularly valuable for both climate and ozone protection efforts. N₂O in the stratosphere participates in 
+                reactions that deplete ozone. In fact, N₂O is currently considered the most significant ozone-depleting substance 
+                being emitted. Mitigation strategies focus on improving nitrogen use efficiency in agriculture through precision 
+                farming techniques, optimized fertilizer application timing, using nitrification inhibitors, and implementing 
+                cover crops. The atmospheric concentration of N₂O has increased from about 270 ppb (parts per billion) in 
+                pre-industrial times to over 335 ppb today. 
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -489,7 +489,7 @@ def main():
                         scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=550
+                height=615
             )
 
             chart_placeholder = chart_container.altair_chart(chart, use_container_width=True)
@@ -517,7 +517,7 @@ def main():
                             scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
-                    height=550
+                    height=615
                 )
                 chart_placeholder.altair_chart(updated_chart, use_container_width=True)
                 
@@ -612,7 +612,7 @@ def main():
                             scale=alt.Scale(domain=[300, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
-                    height=550
+                    height=615
                 )
                 
                 combined_chart = final_chart + confidence_interval + forecast_line_layer + forecast_text
@@ -640,7 +640,7 @@ def main():
                         scale=alt.Scale(domain=[300, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=550
+                height=615
             )
             
             chart_container.altair_chart(placeholder_chart, use_container_width=True)
@@ -877,7 +877,7 @@ def main():
                     import traceback
                     st.error(traceback.format_exc())
         
-        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (December 31, 2023), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppb value (December 31, 2023), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
@@ -904,7 +904,7 @@ def main():
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">NOAA N₂O ppm Data Span</p>
+            <p class="metric-title">NOAA N₂O PPB Data Span</p>
             <p class="metric-value">Feb 15, 1996 - Dec 31, 2023</p>
         </div>
         """, unsafe_allow_html=True)

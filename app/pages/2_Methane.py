@@ -74,14 +74,14 @@ st.sidebar.markdown("""
                     font-weight: bold;
                     font-size: 2.4rem;
                     color:#ba5803; 
-                    margin-top: 10px;
-                    margin-bottom:10px;
+                    margin-top: 5px;
+                    margin-bottom:5px;
                     text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CH₄</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown(f"""
                     <div style="text-align: center;">
-                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "ch4_molecule.png"))}" width="150">
+                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "ch4_molecule.png"))}" width="115">
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -142,9 +142,9 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li {{
-            padding: 12px 20px;
-            margin-bottom: 5px;
-            font-size: 1.4rem;
+            padding: 8px 20px;
+            margin-bottom: 2px;
+            font-size: 1.2rem;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0); 
         }}
         
@@ -230,7 +230,7 @@ def set_background_image(image_file):
         }}
         
         .results-container {{
-            background-color: rgba(255, 255, 255, 0.7);
+            background-color: rgba(255, 255, 255, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -410,26 +410,23 @@ def main():
         st.markdown("""
         <div class="info-container">
             <p>
-                Methane (CH₄) is a colorless, odorless gas composed of one carbon atom bonded to four hydrogen atoms in a 
-                tetrahedral structure. It's the simplest alkane and primary component of natural gas, making up about 95% of 
-                natural gas by volume. Methane occurs naturally through the decomposition of organic matter in anaerobic (low-oxygen) 
-                conditions. Common sources include wetlands, termites, and ruminant animals (cows, sheep) during digestion. 
-                Human activities like rice cultivation, livestock farming, landfills, and fossil fuel extraction contribute 
-                significantly to atmospheric methane. Industrially, it serves as a key fuel source, a raw material for hydrogen
-                and synthetic gas production, and as a precursor for chemicals and plastics manufacturing. Methane is also the 
-                main component of natural gas used for heating and cooking in many homes and businesses.
+                Methane (CH₄) is a colorless, odorless gas made up of one carbon atom and four hydrogen atoms. It’s the main 
+                ingredient in natural gas and is released into the atmosphere from both natural and human activities. A major 
+                natural source is wetlands, where bacteria break down organic material and produce methane as a byproduct. On 
+                the human side, livestock farming is a big contributor, cows and other ruminant animals produce methane during 
+                digestion, which they release into the air. While methane isn’t as well-known as carbon dioxide (CO₂), it plays 
+                a major role in climate change. Even though there’s less of it in the atmosphere, it’s incredibly effective at 
+                trapping heat. Atmospheric methane concentrations have risen dramatically since pre-industrial times, from 
+                approximately 700 ppb (parts per billion) to over 1,900 ppb today.
             </p>
             <p>
-                As a greenhouse gas, methane has a much higher global warming potential than carbon dioxide, trapping 28-36 times 
-                more heat over a 100-year period, though it persists in the atmosphere for a shorter time (about 12 years compared 
-                to CO₂'s hundreds of years). Atmospheric methane concentrations have risen dramatically since pre-industrial 
-                times, from approximately 700 ppb (parts per billion) to over 1,900 ppm today. This increase significantly 
-                contributes to enhanced global warming beyond what would occur with CO₂ alone. Despite its shorter lifetime, 
-                methane's potency makes it a critical target for climate change mitigation efforts. Additionally, methane is 
-                flammable and can form explosive mixtures in air, posing safety hazards in enclosed spaces. It also participates 
-                in atmospheric chemistry, contributing to tropospheric ozone formation, which is both a greenhouse gas and air 
-                pollutant affecting human health and crop yields. In natural ecosystems, methane from thawing permafrost creates 
-                a concerning feedback loop as warming releases more of this potent greenhouse gas.
+                Over a 20-year period, methane is about 80 times more powerful than CO₂ at warming the planet. The good news is 
+                that it doesn’t last nearly as long, while CO₂ lingers for thousands of years, methane breaks down in about 12 
+                years. This means cutting methane emissions can have a quicker impact on slowing global warming. Besides heating
+                the planet, methane also contributes to air pollution by helping create ground-level ozone, which harms human 
+                health. Because of its outsized effect, reducing methane leaks from sources like livestock and wetlands could 
+                make a real difference. Solutions like improving livestock feed and better land management can help cut emissions 
+                in the short term.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -489,7 +486,7 @@ def main():
                         scale=alt.Scale(domain=[1600, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=550
+                height=615
             )
 
             chart_placeholder = chart_container.altair_chart(chart, use_container_width=True)
@@ -517,7 +514,7 @@ def main():
                             scale=alt.Scale(domain=[1600, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
-                    height=550
+                    height=615
                 )
                 chart_placeholder.altair_chart(updated_chart, use_container_width=True)
                 
@@ -612,7 +609,7 @@ def main():
                             scale=alt.Scale(domain=[1600, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
-                    height=550
+                    height=615
                 )
                 
                 combined_chart = final_chart + confidence_interval + forecast_line_layer + forecast_text
@@ -640,7 +637,7 @@ def main():
                         scale=alt.Scale(domain=[1600, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
-                height=550
+                height=615
             )
             
             chart_container.altair_chart(placeholder_chart, use_container_width=True)
@@ -877,7 +874,7 @@ def main():
                     import traceback
                     st.error(traceback.format_exc())
         
-        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppb value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
@@ -904,7 +901,7 @@ def main():
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">NOAA CH₄ ppm Data Span</p>
+            <p class="metric-title">NOAA CH₄ PPB Data Span</p>
             <p class="metric-value">Jan 1, 1983 - May 31, 2024</p>
         </div>
         """, unsafe_allow_html=True)

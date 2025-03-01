@@ -39,9 +39,9 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li {{
-            padding: 12px 20px;
-            margin-bottom: 5px;  /* Add space between buttons */
-            font-size: 1.4rem;
+            padding: 8px 20px;
+            margin-bottom: 2px;  /* Add space between buttons */
+            font-size: 1.2rem;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0); 
         }}
         
@@ -323,7 +323,7 @@ st.markdown("""
         At the core of AtmoSeer is a custom-built Bidirectional LSTM neural network architecture with an attention mechanism, optimized 
         through Bayesian hyperparameter tuning. This model captures both long-term trends and seasonal patterns in atmospheric gas 
         concentrations through cyclical seasonal awareness that was created during feature engineering, which pairs perfectly with 
-        the LSTM's ability to learn both long-term trends going decades back and recent patterns that from only a few week prior. 
+        the LSTM's ability to learn both long-term trends going back decades and recent patterns from only a few week prior. 
         <br>
         <br>
         This project was designed as an open-source contribution to climate science, providing researchers, educators, and concerned citizens 
@@ -334,10 +334,10 @@ st.markdown("""
 <div class="project-description">
     <p>
         To get started, simply select a gas type from the sidebar to get some background on the gas and view some the historical 
-        emission trends. To lookup a ppm value for a specific date, select the date from the dropdown menu next to the graph, it has
+        emission trends. To lookup a concentration value (ppm, ppb, or ppt) for a specific date, select the date from the dropdown menu next to the graph, it has
         the option to choose a single date or a range of dates. The graph will update to show all historical data up to that point as
-        well as output the ppm value for that date (or range of dates) underneath the graph. Then to forecast future emission levels
-        for a specifc date, use AtmoSeer forecaster (underneath the ppm lookup) to generate a forecast for the selected date. 
+        well as output the value for that date (or range of dates) underneath the graph. Then to forecast future emission levels
+        for a specifc date, use AtmoSeer forecaster to generate a forecast for the selected date. 
         <br>
         <br>
         AtmoSeer will generate predictions for each day past the last recorded date up to the selected date, so the further out the forecast is,

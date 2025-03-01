@@ -10,7 +10,8 @@ from datetime import timedelta
 import altair as alt
 from utils.ppm_lookup import NOAALookup
 from atmoseer.atmoseer_core import BayesianTuner
-from atmoseer.preprocessors.forecast_setup import CO2_CH4ForecastHelper
+from atmoseer.preprocessors.forecast_setup import N2O_SF6ForecastHelper
+from atmoseer.preprocessors.atmoseer_preprocessor import AtmoSeerPreprocessor
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -20,8 +21,8 @@ atmoseer_dir = os.path.join(project_root, 'atmoseer')
 sys.path.append(atmoseer_dir)
 
 st.set_page_config(
-    page_title="Carbon Dioxide | AtmoSeer",
-    page_icon="🌲",
+    page_title="Sulfur Hexafluoride | AtmoSeer",
+    page_icon="⚡",
     layout="wide"
 )
 
@@ -44,7 +45,6 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Eliminate spacing in block containers */
     .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
@@ -72,15 +72,15 @@ st.sidebar.markdown("""
                     <h1 style='text-align: center; 
                     font-weight: bold;
                     font-size: 2.4rem;
-                    color:#04870b; 
+                    color:#efdc08; 
                     margin-top: 5px;
                     margin-bottom:5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CO₂</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>SF₆</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown(f"""
                     <div style="text-align: center;">
-                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "co2_molecule.png"))}" width="200">
+                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "sf6_molecule.png"))}" width="125">
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -89,7 +89,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top:10px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Molar Mass:</strong> 44.01 g/mol</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Molar Mass:</strong> 146.06 g/mol</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -97,7 +97,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 37.11 J/mol·K</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 97.28 J/mol·K</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -105,7 +105,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 1.84 kg/m³</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 6.16 kg/m³</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -113,13 +113,13 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 1.45 g/L</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 0.008 g/L</h1>
                     """, unsafe_allow_html=True)
 
 def set_background_image(image_file):
     """Set an image as the page background using CSS."""
     bin_str = get_base64_of_bin_file(image_file)
-    
+
     page_bg_css = f"""
     <style>
         .stApp {{
@@ -128,7 +128,6 @@ def set_background_image(image_file):
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            background-color: rgba(0, 0, 0, 0.4);  /* Darker overlay */
         }}
         
         /* Make all text Courier font */
@@ -137,7 +136,7 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] {{
-            background-color: rgba(4, 135, 11, 0.25) !important;
+            background-color: rgba(239, 220, 8, 0.35) !important;
         }}
         
         section[data-testid="stSidebar"] li {{
@@ -148,8 +147,8 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li:hover {{
-            border-left: 3px solid #04870b;
-            background-color: rgba(4, 135, 11, 1.0);
+            border-left: 3px solid #efdc08;
+            background-color: rgba(239, 220, 8, 1.0);
             border-radius: 4px;
         }}
         
@@ -167,7 +166,6 @@ def set_background_image(image_file):
             position: absolute !important;
         }}
         
-        /* Alternative approach to hide anchor links */
         .header-anchor-link {{
             display: none !important;
         }}
@@ -176,13 +174,13 @@ def set_background_image(image_file):
             font-size: 3.5rem;
             font-weight: bold;
             text-align: center;
-            color: #04870b;
+            color: #efdc08;
             margin-bottom: 1.5rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
         .info-container {{
-            background-color: rgba(4, 135, 11, 0.5);
+            background-color: rgba(239, 220, 8, 0.6);
             padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -192,14 +190,14 @@ def set_background_image(image_file):
         .info-container p {{
             font-size: 1.2rem;
             line-height: 1.0;
-            color: #FFFFFF;
+            color: #000000;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.5);
             margin-bottom: 1rem;
         }}
         
         .chart-container {{
-            background-color: rgba(255, 255, 255, 0.7);
+            background-color: rgba(0, 0, 0, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -207,17 +205,16 @@ def set_background_image(image_file):
         }}
         
         .action-container {{
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 1.5rem;
+            background-color: rgba(0, 0, 0, 1.0);
+            padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.0rem;
         }}
         
         .action-container h3 {{
-            color: #04870b;
+            color: #efdc08;
             font-weight: bold;
-            margin-bottom: 1rem;
             text-align: center;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
@@ -225,13 +222,13 @@ def set_background_image(image_file):
         .form-label {{
             font-size: 1.0rem;
             font-weight: bold;
-            color: #04870b;
+            color: #efdc08;
             margin-bottom: 0.01rem;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
         }}
         
         .results-container {{
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: rgba(0, 0, 0, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -240,7 +237,7 @@ def set_background_image(image_file):
         }}
         
         .results-header {{
-            color: #04870b;
+            color: #efdc08;
             font-weight: bold;
             margin-bottom: 1rem;
             font-size: 1.8rem;
@@ -249,7 +246,7 @@ def set_background_image(image_file):
         }}
         
         .metrics-container {{
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: rgba(0, 0, 0, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -257,7 +254,7 @@ def set_background_image(image_file):
         }}
         
         .metrics-header {{
-            color: #04870b;
+            color: #efdc08;
             font-weight: bold;
             margin-bottom: 1rem;
             text-align: center;
@@ -265,8 +262,8 @@ def set_background_image(image_file):
         }}
         
         .metric-card {{
-            background-color: rgba(4, 135, 11, 0.5);
-            border-left: 4px solid #04870b;
+            background-color: rgba(239, 220, 8, 0.5);
+            border-left: 4px solid #efdc08;
             padding: 0.1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
@@ -276,16 +273,16 @@ def set_background_image(image_file):
             text-align: center;
             font-size: 1.0rem;
             font-weight: bold;
-            color: #FFFFFF;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            color: #000000;
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.5);
         }}
         
         .metric-value {{
             text-align: center;
             font-size: 1.2rem;
             font-weight: bold;
-            color: #FFFFFF;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            color: #000000;
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.5);
         }}
         
         /* Hide default Streamlit elements */
@@ -304,12 +301,12 @@ def format_date(d):
     return d.strftime("%B %d, %Y")
 
 @st.cache_data
-def load_co2_data():
-    """Load CO2 data from the data warehouse with caching."""
+def load_sf6_data():
+    """Load SF6 data from the data warehouse with caching."""
     try:
         data_paths = [
-            os.path.join(project_root, 'data', 'data_warehouse', 'co2_data.csv'),
-            os.path.join(project_root, 'data', 'data_warehouse', 'CO2DataNOAA.csv')
+            os.path.join(project_root, 'data', 'data_warehouse', 'sf6_data.csv'),
+            os.path.join(project_root, 'data', 'data_warehouse', 'SF6DataNOAA.csv')
         ]
         
         for path in data_paths:
@@ -320,10 +317,10 @@ def load_co2_data():
                 df = df.sort_values('date')
                 return df
         
-        st.error("Could not find CO2 data files. Please check your data paths.")
+        st.error("Could not find SF6 data files. Please check your data paths.")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error loading CO2 data: {str(e)}")
+        st.error(f"Error loading SF6 data: {str(e)}")
         return pd.DataFrame()
 
 @st.cache_resource
@@ -336,14 +333,14 @@ def init_lookup(data):
     return None
 
 @st.cache_resource
-def load_co2_model():
-    """Load the trained CO2 model with caching."""
+def load_sf6_model():
+    """Load the trained SF6 model with caching."""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = BayesianTuner.load_best_model(gas_type='co2', device=device)
+        model = BayesianTuner.load_best_model(gas_type='sf6', device=device)
         return model
     except Exception as e:
-        st.warning(f"Could not load CO2 model: {str(e)}. Using simple forecaster instead.")
+        st.warning(f"Could not load SF6 model: {str(e)}. Using simple forecaster instead.")
         return None
 
 # Define a simple forecast result class for when the actual model can't be loaded
@@ -360,7 +357,7 @@ class SimpleForecaster:
         
         days_diff = (pd.to_datetime(target_date) - pd.to_datetime(last_date)).days
         
-        yearly_increase = 2.5
+        yearly_increase = 5.0
         daily_increase = yearly_increase / 365
         
         predicted_ppm = last_ppm + (daily_increase * days_diff)
@@ -372,7 +369,8 @@ class SimpleForecaster:
                 self.lower_bound = lower
                 self.upper_bound = upper
         
-        uncertainty = 1.0 + (days_diff * 0.01)
+        # Create prediction with confidence bounds
+        uncertainty = 0.5 + (days_diff * 0.01)
         prediction = Prediction(
             date=target_date,
             ppm=predicted_ppm,
@@ -399,47 +397,48 @@ def main():
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     images_dir = os.path.join(current_dir, "../images")
-    forest_img_path = os.path.join(images_dir, "Forest.jpg")
+    field_img_path = os.path.join(images_dir, "Italy.jpg")
     
-    if os.path.exists(forest_img_path):
-        set_background_image(forest_img_path)
+    if os.path.exists(field_img_path):
+        set_background_image(field_img_path)
     
-    st.markdown('<h1 class="page-title">Carbon Dioxide (CO₂)</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="page-title">Sulfur Hexafluoride (SF₆)</h1>', unsafe_allow_html=True)
     
     with st.container():
         st.markdown("""
         <div class="info-container">
             <p>
-                Carbon dioxide (CO₂) is a naturally occurring greenhouse gas composed of one carbon atom and two oxygen atoms. 
-                It plays a very important role in Earth's climate system by trapping heat in the atmosphere through the greenhouse effect,
-                which helps maintain stable temperatures. However, since the Industrial Revolution in the late 18th century, human
-                activities have significantly increased CO₂ levels. The widespread use of fossil fuels, coal, oil, and natural 
-                gas—for energy production, transportation, and industry has been the primary driver of this increase. The combustion
-                of these fuels releases large amounts of CO₂, which had been stored underground for millions of years, into the
-                atmosphere. Deforestation has further exacerbated the issue by reducing the number of trees that can 
-                absorb CO₂ through photosynthesis. As a result, atmospheric CO₂ concentrations have risen from about 280 parts per
-                million (ppm) before the Industrial Revolution to over 415 ppm today, with a trend that is going nowhere but up.
+                Sulfur hexafluoride (SF₆) is a colorless, odorless, non-flammable, and non-toxic gas at standard temperature and pressure. 
+                Its molecular structure consists of one sulfur atom surrounded by six fluorine atoms in an octahedral arrangement. SF₆ is 
+                primarily of anthropogenic origin, with virtually no natural sources. It's manufactured for use in various industrial
+                applications. The main sources of SF₆ emissions include electrical equipment (particularly high-voltage circuit breakers,
+                switchgear, and other electrical insulation equipment), magnesium production and casting, semiconductor manufacturing,
+                and other industrial applications. Despite its industrial importance, SF₆ has no biological role and is not produced by
+                any living organisms. Its technical properties, including excellent electrical insulation, high dielectric strength, and
+                chemical stability, make it valuable for various specialized applications in the electrical, electronics, and metallurgical industries.
             </p>
             <p>
-                CO₂ accumulates in the atmosphere, it traps more heat, altering climate patterns and threatening ecosystems. An 
-                example of the dangers of this runaway greenhouse can be seen in Earth’s nearest neighbor, Venus. Despite being 
-                farther from the Sun than Mercury, Venus is the hottest planet in the solar system, with surface temperatures 
-                exceeding 900°F (475°C). This extreme heat is due to Venus’ dense atmosphere, composed of over 96% CO₂, which
-                creates an intense greenhouse effect. The planet’s atmospheric pressure is approximately 92 times that of Earth, 
-                that’s enough pressure to flatten a car like a pancake. The properties of carbon dioxide cause it to remain in the
-                atmosphere for thousands of years, meaning its effects on the climate persist long after it is emitted. Even if 
-                all CO₂ emissions were to stop this very second, it would take thousands of years for atmospheric levels to return
-                to pre-industrial concentrations.
+                As a greenhouse gas, SF₆ is the most potent greenhouse gas known, with a global warming potential 23,500 times greater
+                than CO₂ over a 100-year period. It has an extremely long atmospheric lifetime of approximately 3,200 years. The atmospheric
+                concentration of SF₆ has increased from virtually zero in pre-industrial times to about 10 ppt (parts per trillion) today.
+                Although present in much smaller quantities than CO₂, its extreme warming potential and longevity make it a significant
+                concern for climate change. SF₆ is primarily removed from the atmosphere through photolysis in the mesosphere, a very slow
+                process that contributes to its long atmospheric lifetime. At the concentrations found in the environment, SF₆ poses no
+                direct health risks to humans or ecosystems. SF₆'s combination of extreme warming potential, extremely long atmospheric
+                lifetime, and industrial necessity makes it a challenging greenhouse gas to address. Efforts to reduce SF₆ emissions
+                include improved handling and recycling practices in the electrical industry, development of leak detection and repair
+                protocols, and research into potential alternatives for various applications.
             </p>
+        </div>
         """, unsafe_allow_html=True)
     
-    co2_data = load_co2_data()
+    sf6_data = load_sf6_data()
     
-    if co2_data.empty:
+    if sf6_data.empty:
         st.error("No data available. Please check the data files in the data_warehouse directory.")
         return
     
-    lookup = init_lookup(co2_data)
+    lookup = init_lookup(sf6_data)
     lookup_available = lookup is not None
     
     # Main content area - 75% / 25% split
@@ -447,18 +446,18 @@ def main():
     
     with col1:
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">CO₂ Concentrations (From 1968)</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #efdc08; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">SF₆ Concentrations (From 1996)</h3>', unsafe_allow_html=True)
         
         chart_container = st.container()
         
-        # Only show and animate the chart when specifically requested via buttons
         show_chart = st.session_state.initial_load or st.session_state.lookup_requested or st.session_state.forecast_requested
         
         if show_chart:
-            filtered_data = co2_data.copy()
+            filtered_data = sf6_data.copy()
             show_forecast = False
             forecast_point = None
             
+            # Group by date and take first entry to ensure a single value per date
             filtered_data = filtered_data.sort_values('date').groupby('date').first().reset_index()
 
             if st.session_state.lookup_result is not None and st.session_state.lookup_requested:
@@ -481,11 +480,11 @@ def main():
                 'ppm': [filtered_data.iloc[0]['ppm']]
             })
 
-            chart = alt.Chart(initial_data).mark_line(color='#04870b').encode(
+            chart = alt.Chart(initial_data).mark_line(color='#efdc08').encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
-                        scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
+                        title='SF₆ Concentration (ppm)', 
+                        scale=alt.Scale(domain=[0, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
                 height=615
@@ -509,11 +508,11 @@ def main():
                 
                 animation_data = pd.concat([animation_data, new_point])
                 
-                updated_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                updated_chart = alt.Chart(animation_data).mark_line(color='#efdc08').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
-                            scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
+                            title='SF₆ Concentration (ppt)', 
+                            scale=alt.Scale(domain=[0, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
                     height=615
@@ -604,11 +603,11 @@ def main():
                     text='text:N'
                 )
                 
-                final_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                final_chart = alt.Chart(animation_data).mark_line(color='#efdc08').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
-                            scale=alt.Scale(domain=[300, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
+                            title='SF₆ Concentration (ppt)', 
+                            scale=alt.Scale(domain=[0, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
                     height=615
@@ -628,15 +627,15 @@ def main():
             status_text.empty()
         else:
             placeholder_data = pd.DataFrame({
-                'date': [co2_data['date'].min(), co2_data['date'].max()],
-                'ppm': [co2_data['ppm'].min(), co2_data['ppm'].max()]
+                'date': [sf6_data['date'].min(), sf6_data['date'].max()],
+                'ppm': [sf6_data['ppm'].min(), sf6_data['ppm'].max()]
             })
             
-            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#04870b', opacity=0).encode(
+            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#efdc08', opacity=0).encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
-                        scale=alt.Scale(domain=[300, placeholder_data['ppm'].max() * 1.05]))
+                        title='SF₆ Concentration (ppt)', 
+                        scale=alt.Scale(domain=[0, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
                 height=615
@@ -653,8 +652,8 @@ def main():
                 result = st.session_state.lookup_result
                 st.markdown(f"<h3 class='results-header'>Historical Data for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
+                <div style='background-color: rgba(239, 220, 8, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);'><strong>SF₆ Concentration:</strong> {result['ppm']:.2f} ppt</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -662,11 +661,12 @@ def main():
                 result = st.session_state.forecast_result
                 st.markdown(f"<h3 class='results-header'>Forecast for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
-                    <p style='margin-bottom: 0.2rem; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>Confidence Interval:</strong> {result.get('lower_bound', 0):.2f} - {result.get('upper_bound', 0):.2f} ppm</p>
+                <div style='background-color: rgba(239, 220, 8, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);'><strong>SF₆ Concentration:</strong> {result['ppm']:.2f} ppt</p>
+                    <p style='margin-bottom: 0.2rem; font-size: 1.5rem; text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);'><strong>Confidence Interval:</strong> {result.get('lower_bound', 0):.2f} - {result.get('upper_bound', 0):.2f} ppt</p>
                 </div>
                 """, unsafe_allow_html=True)
+                
             
             if st.button("Clear Results"):
                 st.session_state.lookup_result = None
@@ -680,7 +680,7 @@ def main():
     
     with col2:
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">Historical PPM Lookup</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #efdc08; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0); font-size: 1.6rem;">Historical PPT Lookup</h3>', unsafe_allow_html=True)
         st.markdown('<p class="form-label">Lookup Type</p>', unsafe_allow_html=True)
         
         lookup_type = st.radio(
@@ -690,10 +690,10 @@ def main():
         )
         
         if lookup_type == "Single Date":
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = sf6_data['date'].min().date()
+            max_date = sf6_data['date'].max().date()
             
-            st.markdown('<p class="form-label">Select Date From Jan 1968 to May 2024</p>', unsafe_allow_html=True)
+            st.markdown('<p class="form-label">Select Date From Dec 1996 to Dec 2023</p>', unsafe_allow_html=True)
             lookup_date = st.date_input(
                 "",
                 value=max_date,
@@ -718,8 +718,8 @@ def main():
                             st.warning("No data found for the selected date.")
                     else:
                         lookup_date_dt = pd.to_datetime(lookup_date)
-                        closest_idx = (co2_data['date'] - lookup_date_dt).abs().idxmin()
-                        record = co2_data.iloc[closest_idx]
+                        closest_idx = (sf6_data['date'] - lookup_date_dt).abs().idxmin()
+                        record = sf6_data.iloc[closest_idx]
                         st.session_state.lookup_result = {
                             'date': pd.to_datetime(record['date']),
                             'ppm': record['ppm'],
@@ -734,8 +734,8 @@ def main():
                     st.rerun()
         
         else:
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = sf6_data['date'].min().date()
+            max_date = sf6_data['date'].max().date()
             
             st.markdown('<p class="form-label">Start Date</p>', unsafe_allow_html=True)
             start_date = st.date_input(
@@ -786,8 +786,8 @@ def main():
                         else:
                             st.warning("No data found for the selected date range.")
                     else:
-                        mask = (co2_data['date'] >= pd.to_datetime(start_date)) & (co2_data['date'] <= pd.to_datetime(end_date))
-                        filtered_data = co2_data[mask]
+                        mask = (sf6_data['date'] >= pd.to_datetime(start_date)) & (sf6_data['date'] <= pd.to_datetime(end_date))
+                        filtered_data = sf6_data[mask]
                         
                         if not filtered_data.empty:
                             mid_idx = len(filtered_data) // 2
@@ -811,13 +811,13 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #efdc08; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
         
-        last_date = co2_data['date'].max().date()
+        last_date = sf6_data['date'].max().date()
         min_forecast = last_date + timedelta(days=1)
         max_forecast = last_date + timedelta(days=365)
         
-        st.markdown('<p class="form-label">Select Date From June 2024 to May 2025</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Select Date From Jan 2024 to Dec 2024</p>', unsafe_allow_html=True)
         forecast_date = st.date_input(
             "",
             value=min_forecast + timedelta(days=30),
@@ -829,10 +829,15 @@ def main():
         if st.button("Generate Forecast", key="generate_forecast"):
             with st.spinner("Generating forecast..."):
                 try:
-                    model = load_co2_model()
+                    model = load_sf6_model()
                     
                     if model is not None:
-                        forecaster = CO2_CH4ForecastHelper(model, co2_data)
+                        preprocessor = AtmoSeerPreprocessor(gas_type='sf6')
+                        preprocessor.prepare_data(sf6_data.copy())
+                        
+                        forecaster = N2O_SF6ForecastHelper(model, sf6_data)
+                        forecaster.preprocessor = preprocessor
+                        
                         prediction, historical = forecaster.predict_for_date(forecast_date)
                         
                         forecast_values = {
@@ -851,7 +856,7 @@ def main():
                             'historical': forecast_values 
                         }
                     else:
-                        forecaster = SimpleForecaster(co2_data)
+                        forecaster = SimpleForecaster(sf6_data)
                         prediction, _ = forecaster.predict_for_date(forecast_date)
                         
                         st.session_state.forecast_result = {
@@ -869,13 +874,13 @@ def main():
                 except Exception as e:
                     st.error(f"Error during forecasting: {str(e)}")
                     import traceback
-                    st.error(traceback.format_exc()) 
+                    st.error(traceback.format_exc())
         
-        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppt value (December 31, 2023), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
-    st.markdown('<h3 class="metrics-header">AtmoSeer CO₂ Model Metrics</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="metrics-header">AtmoSeer SF₆ Model Metrics</h3>', unsafe_allow_html=True)
     
     met_col1, met_col2, met_col3, met_col4 = st.columns(4)
     
@@ -891,15 +896,15 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Best Validation Loss</p>
-            <p class="metric-value">0.0632</p>
+            <p class="metric-value">0.0291</p>
         </div>
         """, unsafe_allow_html=True)
     
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">NOAA CO₂ PPM Data Span</p>
-            <p class="metric-value">Jan 16, 1968 - May 31, 2024</p>
+            <p class="metric-title">NOAA SF₆ PPT Data Span</p>
+            <p class="metric-value">Dec 4, 1996 - Dec 31, 2023</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -917,7 +922,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Hidden Dimensions</p>
-            <p class="metric-value">264</p>
+            <p class="metric-value">233</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -933,7 +938,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Learning Rate</p>
-            <p class="metric-value">0.0001</p>
+            <p class="metric-value"> 0.00090</p>
         </div>
         """, unsafe_allow_html=True)
         
