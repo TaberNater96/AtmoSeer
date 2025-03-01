@@ -10,7 +10,8 @@ from datetime import timedelta
 import altair as alt
 from utils.ppm_lookup import NOAALookup
 from atmoseer.atmoseer_core import BayesianTuner
-from atmoseer.preprocessors.forecast_setup import CO2_CH4ForecastHelper
+from atmoseer.preprocessors.forecast_setup import N2O_SF6ForecastHelper
+from atmoseer.preprocessors.atmoseer_preprocessor import AtmoSeerPreprocessor
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -20,8 +21,8 @@ atmoseer_dir = os.path.join(project_root, 'atmoseer')
 sys.path.append(atmoseer_dir)
 
 st.set_page_config(
-    page_title="Carbon Dioxide | AtmoSeer",
-    page_icon="🌲",
+    page_title="Nitrous Oxide | AtmoSeer",
+    page_icon="🌱",
     layout="wide"
 )
 
@@ -44,7 +45,6 @@ st.markdown("""
         display: none !important;
     }
     
-    /* Eliminate spacing in block containers */
     .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
@@ -72,15 +72,15 @@ st.sidebar.markdown("""
                     <h1 style='text-align: center; 
                     font-weight: bold;
                     font-size: 2.4rem;
-                    color:#04870b; 
-                    margin-top:10px;
+                    color:#2145d4; 
+                    margin-top: 10px;
                     margin-bottom:10px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>CO₂</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>N₂O</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown(f"""
                     <div style="text-align: center;">
-                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "co2_molecule.png"))}" width="200">
+                        <img src="data:image/png;base64,{get_base64_of_bin_file(os.path.join(images_dir, "n2o_molecule.png"))}" width="225">
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -97,7 +97,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 37.11 J/mol·K</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Heat Capacity:</strong> 38.45 J/mol·K</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -105,7 +105,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 1.84 kg/m³</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 1.98 kg/m³</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -113,13 +113,13 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 1.45 g/L</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 0.57 g/L</h1>
                     """, unsafe_allow_html=True)
 
 def set_background_image(image_file):
     """Set an image as the page background using CSS."""
     bin_str = get_base64_of_bin_file(image_file)
-    
+
     page_bg_css = f"""
     <style>
         .stApp {{
@@ -128,7 +128,6 @@ def set_background_image(image_file):
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            background-color: rgba(0, 0, 0, 0.4);  /* Darker overlay */
         }}
         
         /* Make all text Courier font */
@@ -137,7 +136,7 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] {{
-            background-color: rgba(4, 135, 11, 0.25) !important;
+            background-color: rgba(37, 66, 182, 0.35) !important;
         }}
         
         section[data-testid="stSidebar"] li {{
@@ -148,8 +147,8 @@ def set_background_image(image_file):
         }}
         
         section[data-testid="stSidebar"] li:hover {{
-            border-left: 3px solid #04870b;
-            background-color: rgba(4, 135, 11, 1.0);
+            border-left: 3px solid #2145d4;
+            background-color: rgba(37, 66, 182, 1.0);
             border-radius: 4px;
         }}
         
@@ -167,7 +166,6 @@ def set_background_image(image_file):
             position: absolute !important;
         }}
         
-        /* Alternative approach to hide anchor links */
         .header-anchor-link {{
             display: none !important;
         }}
@@ -176,13 +174,13 @@ def set_background_image(image_file):
             font-size: 3.5rem;
             font-weight: bold;
             text-align: center;
-            color: #04870b;
+            color: #2145d4;
             margin-bottom: 1.5rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);
         }}
         
         .info-container {{
-            background-color: rgba(4, 135, 11, 0.5);
+            background-color: rgba(37, 66, 182, 0.6);
             padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -208,30 +206,29 @@ def set_background_image(image_file):
         
         .action-container {{
             background-color: rgba(255, 255, 255, 0.8);
-            padding: 1.5rem;
+            padding: 1.0rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.0rem;
         }}
         
         .action-container h3 {{
-            color: #04870b;
+            color: #2145d4;
             font-weight: bold;
-            margin-bottom: 1rem;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);
         }}
         
         .form-label {{
             font-size: 1.0rem;
             font-weight: bold;
-            color: #04870b;
+            color: #2145d4;
             margin-bottom: 0.01rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);
         }}
         
         .results-container {{
-            background-color: rgba(255, 255, 255, 0.7);
+            background-color: rgba(0, 0, 0, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);
@@ -240,12 +237,12 @@ def set_background_image(image_file):
         }}
         
         .results-header {{
-            color: #04870b;
+            color: #2145d4;
             font-weight: bold;
             margin-bottom: 1rem;
             font-size: 1.8rem;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);
         }}
         
         .metrics-container {{
@@ -257,16 +254,16 @@ def set_background_image(image_file):
         }}
         
         .metrics-header {{
-            color: #04870b;
+            color: #2145d4;
             font-weight: bold;
             margin-bottom: 1rem;
             text-align: center;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);
         }}
         
         .metric-card {{
-            background-color: rgba(4, 135, 11, 0.5);
-            border-left: 4px solid #04870b;
+            background-color: rgba(37, 66, 182, 0.5);
+            border-left: 4px solid #2145d4;
             padding: 0.1rem;
             border-radius: 5px;
             margin-bottom: 1rem;
@@ -304,12 +301,12 @@ def format_date(d):
     return d.strftime("%B %d, %Y")
 
 @st.cache_data
-def load_co2_data():
-    """Load CO2 data from the data warehouse with caching."""
+def load_n2o_data():
+    """Load N2O data from the data warehouse with caching."""
     try:
         data_paths = [
-            os.path.join(project_root, 'data', 'data_warehouse', 'co2_data.csv'),
-            os.path.join(project_root, 'data', 'data_warehouse', 'CO2DataNOAA.csv')
+            os.path.join(project_root, 'data', 'data_warehouse', 'n2o_data.csv'),
+            os.path.join(project_root, 'data', 'data_warehouse', 'N2ODataNOAA.csv')
         ]
         
         for path in data_paths:
@@ -320,10 +317,10 @@ def load_co2_data():
                 df = df.sort_values('date')
                 return df
         
-        st.error("Could not find CO2 data files. Please check your data paths.")
+        st.error("Could not find N2O data files. Please check your data paths.")
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error loading CO2 data: {str(e)}")
+        st.error(f"Error loading N2O data: {str(e)}")
         return pd.DataFrame()
 
 @st.cache_resource
@@ -336,14 +333,14 @@ def init_lookup(data):
     return None
 
 @st.cache_resource
-def load_co2_model():
-    """Load the trained CO2 model with caching."""
+def load_n2o_model():
+    """Load the trained N2O model with caching."""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = BayesianTuner.load_best_model(gas_type='co2', device=device)
+        model = BayesianTuner.load_best_model(gas_type='n2o', device=device)
         return model
     except Exception as e:
-        st.warning(f"Could not load CO2 model: {str(e)}. Using simple forecaster instead.")
+        st.warning(f"Could not load N2O model: {str(e)}. Using simple forecaster instead.")
         return None
 
 # Define a simple forecast result class for when the actual model can't be loaded
@@ -360,7 +357,7 @@ class SimpleForecaster:
         
         days_diff = (pd.to_datetime(target_date) - pd.to_datetime(last_date)).days
         
-        yearly_increase = 2.5
+        yearly_increase = 1.0
         daily_increase = yearly_increase / 365
         
         predicted_ppm = last_ppm + (daily_increase * days_diff)
@@ -372,7 +369,8 @@ class SimpleForecaster:
                 self.lower_bound = lower
                 self.upper_bound = upper
         
-        uncertainty = 1.0 + (days_diff * 0.01)
+        # Create prediction with confidence bounds
+        uncertainty = 0.5 + (days_diff * 0.01)
         prediction = Prediction(
             date=target_date,
             ppm=predicted_ppm,
@@ -399,48 +397,50 @@ def main():
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     images_dir = os.path.join(current_dir, "../images")
-    forest_img_path = os.path.join(images_dir, "Forest.jpg")
+    field_img_path = os.path.join(images_dir, "Farm.jpg")
     
-    if os.path.exists(forest_img_path):
-        set_background_image(forest_img_path)
+    if os.path.exists(field_img_path):
+        set_background_image(field_img_path)
     
-    st.markdown('<h1 class="page-title">Carbon Dioxide (CO₂)</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="page-title">Nitrous Oxide (N₂O)</h1>', unsafe_allow_html=True)
     
     with st.container():
         st.markdown("""
         <div class="info-container">
             <p>
-                Carbon dioxide (CO₂) is a colorless, odorless gas composed of one carbon atom bonded to two oxygen atoms. It's a 
-                fundamental component of Earth's carbon cycle, naturally produced through respiration, organic matter decomposition,
-                ocean-atmosphere exchange, and volcanic eruptions. Plants consume CO₂ during photosynthesis, converting it to 
-                oxygen and glucose. Industrially, it's essential in food processing as a preservative and for carbonated beverages,
-                serves as a fire extinguisher due to its non-flammability, and functions as a mild acid in various chemical 
-                processes. CO₂ dissolves easily in water to form carbonic acid, making it important for ocean chemistry, though
-                excessive dissolution leads to ocean acidification. Its solid form, dry ice, sublimates directly from solid to gas 
-                at -78.5°C, bypassing the liquid state at normal atmospheric pressure.
+                Nitrous oxide (N₂O) is a colorless, non-flammable gas with a slightly sweet odor, often known as "laughing gas." 
+                Its molecular structure consists of two nitrogen atoms bonded to one oxygen atom. N₂O is naturally produced 
+                in soils through microbial processes, particularly nitrification and denitrification. These biological 
+                processes convert nitrogen from various forms (like ammonia or nitrate) into N₂O. Natural sources include 
+                soils under natural vegetation and oceans. However, human activities have significantly increased N₂O emissions, 
+                primarily through agricultural practices that add nitrogen to soil through fertilizers, promoting microbial 
+                N₂O production. Other anthropogenic sources include industrial processes, fossil fuel combustion, wastewater 
+                treatment, and biomass burning. N₂O has various applications, most notably as an anesthetic and analgesic in 
+                medical and dental settings, and as an oxidizer in rocket propellants and motor racing to increase engine power.
             </p>
             <p>
-                As a greenhouse gas, CO₂ plays an important role in Earth's climate regulation by absorbing and re-emitting 
-                infrared radiation (heat). While it allows visible sunlight to pass through the atmosphere, it captures heat that 
-                would otherwise escape into space, a fundamental process for maintaining Earth's habitable temperature. However, 
-                since the Industrial Revolution, human activities like fossil fuel combustion, deforestation, and industrial 
-                processes have dramatically increased atmospheric CO₂ concentrations from pre-industrial levels of about 280 ppm 
-                to over 420 ppm today. This sharp incline of the greenhouse effect has accelerated global warming, contributing 
-                to the overall rising of global temperatures, sea level rise, altered precipitation patterns, and more frequent 
-                extreme weather events. The gas's long atmospheric residence time, hundreds to thousands of years in the atmosphere,
-                means that current emissions will influence climate conditions for generations to come. Even if all CO₂ emissions 
-                were to stop this very second, it would take thousands of years to get CO₂ level back to where they were before 
-                the Industrial Revolution.
+                As a greenhouse gas, N₂O is extremely potent, with a global warming potential approximately 300 times greater 
+                than CO₂ over a 100-year period. It persists in the atmosphere for about 114 years before being removed by 
+                chemical reactions or uptake by certain types of bacteria. The atmospheric concentration of N₂O has increased 
+                from about 270 ppb (parts per billion) in pre-industrial times to over 335 ppb today. Although present in 
+                smaller quantities than CO₂, its high warming potential makes it a significant contributor to climate change. 
+                Beyond its climate impact, N₂O in the stratosphere participates in reactions that deplete ozone. In fact, 
+                N₂O is currently considered the most significant ozone-depleting substance being emitted. In high concentrations, 
+                N₂O can cause oxygen deprivation and certain neurological effects, though environmental levels are too low 
+                to cause these direct health impacts. The combination of N₂O's long atmospheric lifetime, potent warming 
+                capacity, and ozone-depleting properties makes it a critical target for emission reduction efforts, particularly 
+                through improved agricultural practices and industrial controls.
             </p>
+        </div>
         """, unsafe_allow_html=True)
     
-    co2_data = load_co2_data()
+    n2o_data = load_n2o_data()
     
-    if co2_data.empty:
+    if n2o_data.empty:
         st.error("No data available. Please check the data files in the data_warehouse directory.")
         return
     
-    lookup = init_lookup(co2_data)
+    lookup = init_lookup(n2o_data)
     lookup_available = lookup is not None
     
     # Main content area - 75% / 25% split
@@ -448,18 +448,18 @@ def main():
     
     with col1:
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">CO₂ Concentrations (From 1968)</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #2145d4; text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);">N₂O Concentrations (From 1983)</h3>', unsafe_allow_html=True)
         
         chart_container = st.container()
         
-        # Only show and animate the chart when specifically requested via buttons
         show_chart = st.session_state.initial_load or st.session_state.lookup_requested or st.session_state.forecast_requested
         
         if show_chart:
-            filtered_data = co2_data.copy()
+            filtered_data = n2o_data.copy()
             show_forecast = False
             forecast_point = None
             
+            # Group by date and take first entry to ensure a single value per date
             filtered_data = filtered_data.sort_values('date').groupby('date').first().reset_index()
 
             if st.session_state.lookup_result is not None and st.session_state.lookup_requested:
@@ -482,10 +482,10 @@ def main():
                 'ppm': [filtered_data.iloc[0]['ppm']]
             })
 
-            chart = alt.Chart(initial_data).mark_line(color='#04870b').encode(
+            chart = alt.Chart(initial_data).mark_line(color='#2145d4').encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
+                        title='N₂O Concentration (ppb)', 
                         scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
@@ -510,10 +510,10 @@ def main():
                 
                 animation_data = pd.concat([animation_data, new_point])
                 
-                updated_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                updated_chart = alt.Chart(animation_data).mark_line(color='#2145d4').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
+                            title='N₂O Concentration (ppb)', 
                             scale=alt.Scale(domain=[300, filtered_data['ppm'].max() * 1.05]))
                 ).properties(
                     width='container',
@@ -605,10 +605,10 @@ def main():
                     text='text:N'
                 )
                 
-                final_chart = alt.Chart(animation_data).mark_line(color='#04870b').encode(
+                final_chart = alt.Chart(animation_data).mark_line(color='#2145d4').encode(
                     x=alt.X('date:T', title='Date'),
                     y=alt.Y('ppm:Q', 
-                            title='CO₂ Concentration (ppm)', 
+                            title='N₂O Concentration (ppb)', 
                             scale=alt.Scale(domain=[300, max(filtered_data['ppm'].max(), forecast_point['ppm'].max()) * 1.05]))
                 ).properties(
                     width='container',
@@ -629,14 +629,14 @@ def main():
             status_text.empty()
         else:
             placeholder_data = pd.DataFrame({
-                'date': [co2_data['date'].min(), co2_data['date'].max()],
-                'ppm': [co2_data['ppm'].min(), co2_data['ppm'].max()]
+                'date': [n2o_data['date'].min(), n2o_data['date'].max()],
+                'ppm': [n2o_data['ppm'].min(), n2o_data['ppm'].max()]
             })
             
-            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#04870b', opacity=0).encode(
+            placeholder_chart = alt.Chart(placeholder_data).mark_line(color='#2145d4', opacity=0).encode(
                 x=alt.X('date:T', title='Date'),
                 y=alt.Y('ppm:Q', 
-                        title='CO₂ Concentration (ppm)', 
+                        title='N₂O Concentration (ppb)', 
                         scale=alt.Scale(domain=[300, placeholder_data['ppm'].max() * 1.05]))
             ).properties(
                 width='container',
@@ -654,8 +654,8 @@ def main():
                 result = st.session_state.lookup_result
                 st.markdown(f"<h3 class='results-header'>Historical Data for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
+                <div style='background-color: rgba(37, 66, 182, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>N₂O Concentration:</strong> {result['ppm']:.2f} ppb</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -663,8 +663,8 @@ def main():
                 result = st.session_state.forecast_result
                 st.markdown(f"<h3 class='results-header'>Forecast for {format_date(result['date'])}</h3>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style='background-color: rgba(4, 135, 11, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
-                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>CO₂ Concentration:</strong> {result['ppm']:.2f} ppm</p>
+                <div style='background-color: rgba(37, 66, 182, 0.5); padding: 1rem; border-radius: 5px; margin-bottom: 0.5rem;'>
+                    <p style='margin-bottom: 0.2rem; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>N₂O Concentration:</strong> {result['ppm']:.2f} ppb</p>
                     <p style='margin-bottom: 0.2rem; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);'><strong>Confidence Interval:</strong> {result.get('lower_bound', 0):.2f} - {result.get('upper_bound', 0):.2f} ppm</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -681,7 +681,7 @@ def main():
     
     with col2:
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">Historical PPM Lookup</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #2145d4; text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0); font-size: 1.6rem;">Historical PPB Lookup</h3>', unsafe_allow_html=True)
         st.markdown('<p class="form-label">Lookup Type</p>', unsafe_allow_html=True)
         
         lookup_type = st.radio(
@@ -691,10 +691,10 @@ def main():
         )
         
         if lookup_type == "Single Date":
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = n2o_data['date'].min().date()
+            max_date = n2o_data['date'].max().date()
             
-            st.markdown('<p class="form-label">Select Date From Jan 1968 to May 2024</p>', unsafe_allow_html=True)
+            st.markdown('<p class="form-label">Select Date From Feb 1983 to Dec 2023</p>', unsafe_allow_html=True)
             lookup_date = st.date_input(
                 "",
                 value=max_date,
@@ -719,8 +719,8 @@ def main():
                             st.warning("No data found for the selected date.")
                     else:
                         lookup_date_dt = pd.to_datetime(lookup_date)
-                        closest_idx = (co2_data['date'] - lookup_date_dt).abs().idxmin()
-                        record = co2_data.iloc[closest_idx]
+                        closest_idx = (n2o_data['date'] - lookup_date_dt).abs().idxmin()
+                        record = n2o_data.iloc[closest_idx]
                         st.session_state.lookup_result = {
                             'date': pd.to_datetime(record['date']),
                             'ppm': record['ppm'],
@@ -735,8 +735,8 @@ def main():
                     st.rerun()
         
         else:
-            min_date = co2_data['date'].min().date()
-            max_date = co2_data['date'].max().date()
+            min_date = n2o_data['date'].min().date()
+            max_date = n2o_data['date'].max().date()
             
             st.markdown('<p class="form-label">Start Date</p>', unsafe_allow_html=True)
             start_date = st.date_input(
@@ -787,8 +787,8 @@ def main():
                         else:
                             st.warning("No data found for the selected date range.")
                     else:
-                        mask = (co2_data['date'] >= pd.to_datetime(start_date)) & (co2_data['date'] <= pd.to_datetime(end_date))
-                        filtered_data = co2_data[mask]
+                        mask = (n2o_data['date'] >= pd.to_datetime(start_date)) & (n2o_data['date'] <= pd.to_datetime(end_date))
+                        filtered_data = n2o_data[mask]
                         
                         if not filtered_data.empty:
                             mid_idx = len(filtered_data) // 2
@@ -812,13 +812,13 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
     
         st.markdown('<div class="action-container">', unsafe_allow_html=True)
-        st.markdown('<h3 style="text-align: center; color: #04870b; text-shadow: 2px 2px 4px rgba(0, 0, 0, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="text-align: center; color: #2145d4; text-shadow: 2px 2px 4px rgba(255, 255, 255, 1.0);">AtmoSeer Forecast</h3>', unsafe_allow_html=True)
         
-        last_date = co2_data['date'].max().date()
+        last_date = n2o_data['date'].max().date()
         min_forecast = last_date + timedelta(days=1)
         max_forecast = last_date + timedelta(days=365)
         
-        st.markdown('<p class="form-label">Select Date From June 2024 to May 2025</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Select Date From Jan 2024 to Dec 2024</p>', unsafe_allow_html=True)
         forecast_date = st.date_input(
             "",
             value=min_forecast + timedelta(days=30),
@@ -830,10 +830,15 @@ def main():
         if st.button("Generate Forecast", key="generate_forecast"):
             with st.spinner("Generating forecast..."):
                 try:
-                    model = load_co2_model()
+                    model = load_n2o_model()
                     
                     if model is not None:
-                        forecaster = CO2_CH4ForecastHelper(model, co2_data)
+                        preprocessor = AtmoSeerPreprocessor(gas_type='n2o')
+                        preprocessor.prepare_data(n2o_data.copy())
+                        
+                        forecaster = N2O_SF6ForecastHelper(model, n2o_data)
+                        forecaster.preprocessor = preprocessor
+                        
                         prediction, historical = forecaster.predict_for_date(forecast_date)
                         
                         forecast_values = {
@@ -852,7 +857,7 @@ def main():
                             'historical': forecast_values 
                         }
                     else:
-                        forecaster = SimpleForecaster(co2_data)
+                        forecaster = SimpleForecaster(n2o_data)
                         prediction, _ = forecaster.predict_for_date(forecast_date)
                         
                         st.session_state.forecast_result = {
@@ -870,13 +875,13 @@ def main():
                 except Exception as e:
                     st.error(f"Error during forecasting: {str(e)}")
                     import traceback
-                    st.error(traceback.format_exc()) 
+                    st.error(traceback.format_exc())
         
-        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (May 31, 2024), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="form-label">Note that the farther out the forecast date is from the last recorded ppm value (December 31, 2023), the longer it will take AtmoSeer to generate a forecast.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
-    st.markdown('<h3 class="metrics-header">AtmoSeer CO₂ Model Metrics</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="metrics-header">AtmoSeer N₂O Model Metrics</h3>', unsafe_allow_html=True)
     
     met_col1, met_col2, met_col3, met_col4 = st.columns(4)
     
@@ -892,15 +897,15 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Best Validation Loss</p>
-            <p class="metric-value">0.0632</p>
+            <p class="metric-value">0.0428</p>
         </div>
         """, unsafe_allow_html=True)
     
     with met_col3:
         st.markdown("""
         <div class="metric-card">
-            <p class="metric-title">NOAA CO₂ PPM Data Span</p>
-            <p class="metric-value">Jan 16, 1968 - May 31, 2024</p>
+            <p class="metric-title">NOAA N₂O ppm Data Span</p>
+            <p class="metric-value">Feb 15, 1996 - Dec 31, 2023</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -918,7 +923,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Hidden Dimensions</p>
-            <p class="metric-value">264</p>
+            <p class="metric-value">268</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -934,7 +939,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Learning Rate</p>
-            <p class="metric-value">0.0001</p>
+            <p class="metric-value">0.00025</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -942,7 +947,7 @@ def main():
         st.markdown("""
         <div class="metric-card">
             <p class="metric-title">Sequence Length</p>
-            <p class="metric-value">30 Days</p>
+            <p class="metric-value">31 Days</p>
         </div>
         """, unsafe_allow_html=True)
     

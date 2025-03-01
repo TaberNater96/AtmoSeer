@@ -106,7 +106,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 0.657 kg/m³</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Density:</strong> 0.66 kg/m³</h1>
                     """, unsafe_allow_html=True)
 
 st.sidebar.markdown("""
@@ -114,7 +114,7 @@ st.sidebar.markdown("""
                     font-size: 1.2rem;
                     color:#FFFFFF; 
                     margin-top: 0.5px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 0.0227 g/L</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'><strong>Solubility:</strong> 0.02 g/L</h1>
                     """, unsafe_allow_html=True)
 
 def set_background_image(image_file):
@@ -248,7 +248,7 @@ def set_background_image(image_file):
         }}
         
         .metrics-container {{
-            background-color: rgba(255, 255, 255, 0.7);
+            background-color: rgba(255, 255, 255, 0.6);
             padding: 1rem;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.6);

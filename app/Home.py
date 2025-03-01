@@ -3,7 +3,6 @@ import os
 import sys
 import base64
 
-# Add the parent directory to the path to access other modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def get_base64_of_bin_file(bin_file):
@@ -72,12 +71,12 @@ def set_background_image(image_file):
         
         .header-container {{
             display: flex;
-            flex-direction: row;  /* Changed from column to row */
-            justify-content: space-between;  /* Push items to opposite ends */
+            flex-direction: row;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
             padding: 0 1rem;
-            width: 100%;  /* Ensure it spans full width */
+            width: 100%; 
         }}
         
         .author-name {{
@@ -91,7 +90,7 @@ def set_background_image(image_file):
         .github-link {{
             display: inline-flex;
             align-items: center;
-            background-color: #000000;  /* Black background */
+            background-color: #000000; 
             color: white !important;
             padding: 0.5rem 1rem;
             font-size: 1.5rem;
@@ -157,16 +156,15 @@ def set_background_image(image_file):
             font-weight: bold;
             padding: 0.3rem 0.8rem;
             border-radius: 4px;
-            background-color: #2980b9;  /* Darker blue */
+            background-color: #2980b9; 
             display: inline-block;
             margin-top: auto;
         }}
         
         .data-source a:hover {{
-            background-color: #1c5a85;  /* Even darker on hover */
+            background-color: #1c5a85; 
         }}
 
-        /* Logo container styling */
         .logo-container {{
             display: flex;
             justify-content: center;
@@ -194,7 +192,6 @@ def set_background_image(image_file):
             position: absolute !important;
         }}
 
-        /* Alternative approach to hide anchor links */
         .header-anchor-link {{
             display: none !important;
         }}
@@ -288,7 +285,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 images_dir = os.path.join(current_dir, "images")
 earth_img_path = os.path.join(images_dir, "Earth.jpg")
 
-# Set the background image with proper path
 set_background_image(earth_img_path)
 
 st.sidebar.markdown("""
@@ -296,10 +292,9 @@ st.sidebar.markdown("""
                     font-size: 1.4rem;
                     color:#19a19a; 
                     margin-top: 115px;
-                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>Navigate Through Each Gas Type Here</h1>
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 1.0);'>Navigate Through Each Gas Type</h1>
                     """, unsafe_allow_html=True)
 
-# Header Section with author and GitHub link in a row
 st.markdown('<h1 class="title">AtmoSeer</h1>', unsafe_allow_html=True)
 st.markdown('<h1 class="title_desc">Where Atmospheric Science Meets Deep Learning Algorithms</h1>', unsafe_allow_html=True)
 
