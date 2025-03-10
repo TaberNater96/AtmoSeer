@@ -1,4 +1,6 @@
-<center><h1>AtmoSeer</h1></center>
+<div align="center">
+  <h1><b>AtmoSeer<b></h1>
+</div>
 
 ## Overview
 AtmoSeer is a comprehensive full-stack data science project that brings predictive atmospheric science to your fingertips. Unlike most existing tools that only analyze historical greenhouse gas data, AtmoSeer leverages an advanced deep learning algorithm to forecast future emission levels with statistical confidence intervals.
