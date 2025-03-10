@@ -339,10 +339,25 @@ def load_ch4_model():
     """Load the trained CH4 model with caching."""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = BayesianTuner.load_best_model(gas_type='ch4', device=device)
+        models_dir = os.path.join(project_root, 'atmoseer', 'models')
+        
+        print(f"Looking for model at: {os.path.join(models_dir, 'ch4', 'best_model', 'model.pth')}")
+        
+        if not os.path.exists(os.path.join(models_dir, 'ch4', 'best_model', 'model.pth')):
+            print(f"Model file does not exist at expected location")
+            return None
+        
+        model = BayesianTuner.load_best_model(
+            gas_type='ch4', 
+            models_dir=models_dir,
+            device=device
+        )
         return model
+    
     except Exception as e:
         st.warning(f"Could not load CH4 model: {str(e)}. Using simple forecaster instead.")
+        import traceback
+        st.warning(f"Traceback: {traceback.format_exc()}")
         return None
 
 # Define a simple forecast result class for when the actual model can't be loaded

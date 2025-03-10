@@ -340,7 +340,6 @@ def load_co2_model():
     """Load the trained CO2 model with caching."""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
         models_dir = os.path.join(project_root, 'atmoseer', 'models')
         
         print(f"Looking for model at: {os.path.join(models_dir, 'co2', 'best_model', 'model.pth')}")
@@ -355,6 +354,7 @@ def load_co2_model():
             device=device
         )
         return model
+    
     except Exception as e:
         st.warning(f"Could not load CO2 model: {str(e)}. Using simple forecaster instead.")
         import traceback
